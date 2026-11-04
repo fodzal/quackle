@@ -10,6 +10,13 @@ Quackle is a cross-platform (macOS, Windows, Linux) crossword game AI/analysis t
 
 Other top-level directories (`encodeleaves/`, `makegaddag/`, `makeminidawg/`, `gaddagize/`) build standalone one-off utilities, each with its own `CMakeLists.txt` pulled in by `quacker/CMakeLists.txt`.
 
+## Fork notes
+
+`docs/ARCHITECTURE.md` maps the engine (move generation, evaluation, players, simulator,
+endgame, reports); `docs/ROADMAP.md` lists known bugs and AI-improvement work;
+`docs/ANALYSE_IA.md` is the detailed AI diagnosis and improvement catalog; `docs/PLAN_IA.md`
+orders that work into phases and PRs. All are in French. Read them before working on the AI and keep them up to date.
+
 ## Build status
 
 Builds work on all platforms: macOS, Windows, and Linux.
