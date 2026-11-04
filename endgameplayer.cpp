@@ -75,7 +75,19 @@ MoveList EndgamePlayer::moves(int nmoves)
 	m_endgame.setPosition(currentPosition());
 
 	if (nmoves > 1)
-		return m_endgame.moves(nmoves);
+	{
+		MoveList ret = m_endgame.moves(nmoves);
+		for (const auto &considered : m_simulator.consideredMoves())
+		{
+			if (ret.contains(considered))
+				continue;
+
+			Move move(considered);
+			m_endgame.reallyPlayOut(move, 0);
+			ret.push_back(move);
+		}
+		return ret;
+	}
 
 #ifdef DEBUG_ENDGAME
 	UVcout << "EndgamePlayer solving endgame from position:" << endl;

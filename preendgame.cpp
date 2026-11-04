@@ -229,8 +229,9 @@ sort_and_return:
 	int i = 1;
 	for (MoveList::iterator moveIt = moves.begin(); moveIt != moves.end(); ++moveIt, ++i)
 	{
-		if (i > nmoves)
-			break;
+		// move() takes moves(1).back(), so only a longer list may carry considered moves.
+		if (i > nmoves && (nmoves == 1 || !m_simulator.isConsideredMove(*moveIt)))
+			continue;
 
 		(*moveIt).win = (*moveIt).possibleWin;
 		ret.push_back(*moveIt);

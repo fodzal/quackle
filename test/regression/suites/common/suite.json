@@ -12,6 +12,7 @@
     { "name": "positions-multi",      "mode": "positions", "positions": ["preendgame.gcg", "logan.gcg"] },
 
     { "name": "report-logan",         "mode": "report",     "positions": ["logan.gcg"] },
+    { "name": "report-boys2",         "mode": "report",     "positions": ["boys2.gcg"] },
     { "name": "htmlreport-logan",     "mode": "htmlreport", "positions": ["logan.gcg"] },
 
     { "name": "endgame-passout",      "mode": "passout" }
