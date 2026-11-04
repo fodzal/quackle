@@ -245,8 +245,6 @@ double Endgame::disappoint(EndgameMove &hope, double bestPessimistic)
 			levelNumber++;
 		}
 
-		m_endgameGame.currentPosition().adjustScoresToFinishGame();
-
 		double afterSpread = m_endgameGame.currentPosition().spread(realStartPlayerId);
 
 		double spread = afterSpread - beforeSpread;
@@ -348,8 +346,6 @@ Move Endgame::choose()
 			(*moveIt).outplay = true;
 		else
 			(*moveIt).outplay = false;
-
-		m_endgameGame.currentPosition().adjustScoresToFinishGame();
 
 		double afterSpread = m_endgameGame.currentPosition().spread(startPlayerId);
 
@@ -454,8 +450,6 @@ void Endgame::reallyPlayOut(Move &chosenMove, int /* nestedness */)
 
 		levelNumber++;
 	}
-
-	playoutGame.currentPosition().adjustScoresToFinishGame();
 
 	double afterSpread = playoutGame.currentPosition().spread(startPlayerId);
 	double spread = afterSpread - beforeSpread;

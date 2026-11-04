@@ -85,6 +85,9 @@ public:
 	// Checks the simulator's accumulators. Exits nonzero on failure.
 	void simulation();
 
+	// Checks win and spread of a passed-out endgame. Exits nonzero on failure.
+	void passOut();
+
 	// Allocates and loads a game from the file.
 	Quackle::Game *createNewGame(const QString &filename);
 

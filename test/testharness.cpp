@@ -216,6 +216,7 @@ const char *usage = "Optional arguments:\n"
 					"       'endgame' plays --repetitions Static Player games to an empty bag and\n"
 					"                 compares the endgame solver (budget from --config endgame=)\n"
 					"                 with the playout heuristic, both judged by a deeper solve.\n"
+					"       'passout' checks win and spread of an endgame that ends by passes.\n"
 					"--position=game.gcg; this option can be repeated to specify positions\n"
 					"                     to test.\n"
 					"--lexicon=; sets the lexicon (default 'nwl23').\n"
@@ -359,6 +360,8 @@ void TestHarness::executeFromArguments()
 		cpuTopology();
 	else if (mode == "sim")
 		simulation();
+	else if (mode == "passout")
+		passOut();
 }
 
 void TestHarness::startUp()
@@ -2046,4 +2049,74 @@ void TestHarness::simulation()
 	}
 
 	UVcout << "all simulator checks passed" << endl;
+}
+
+namespace
+{
+
+int passOutFailures = 0;
+
+void passOutCheck(bool condition, const char *what)
+{
+	UVcout << (condition ? "PASS" : "FAIL") << " " << what << endl;
+	if (!condition)
+		++passOutFailures;
+}
+
+// Bag empty and neither rack fits next to ZO, so the game can only end by six scoreless turns.
+Quackle::GamePosition stuckEndgame(int scoreA, const UVString &rackA, int scoreB, const UVString &rackB)
+{
+	Quackle::Game game;
+	Quackle::PlayerList players;
+	players.push_back(Quackle::Player(MARK_UV("A"), Quackle::Player::ComputerPlayerType, 0));
+	players.push_back(Quackle::Player(MARK_UV("B"), Quackle::Player::ComputerPlayerType, 1));
+	game.setPlayers(players);
+	game.addPosition();
+
+	Quackle::GamePosition position = game.currentPosition();
+	position.makeMove(Quackle::Move::createPlaceMove(MARK_UV("8H"), QUACKLE_ALPHABET_PARAMETERS->encode(MARK_UV("ZO"))));
+	position.setBag(Quackle::Bag(Quackle::LetterString()));
+	position.setPlayerRack(0, Quackle::Rack(QUACKLE_ALPHABET_PARAMETERS->encode(rackA)), false);
+	position.setPlayerRack(1, Quackle::Rack(QUACKLE_ALPHABET_PARAMETERS->encode(rackB)), false);
+	position.setCurrentPlayer(1);
+	position.currentPlayer().setScore(scoreB);
+	position.setCurrentPlayer(0);
+	position.setPlayerOnTurn(0);
+	position.currentPlayer().setScore(scoreA);
+	return position;
+}
+
+} // namespace
+
+void TestHarness::passOut()
+{
+	// A ends on 300 - 4 = 296, B on 296 - 10 = 286.
+	Quackle::GamePosition position = stuckEndgame(300, MARK_UV("V"), 296, MARK_UV("Q"));
+	position.kibitz(10);
+	UVcout << position << endl;
+	UVcout << "A's moves: " << position.moves() << endl;
+
+	Quackle::Endgame solver;
+	solver.setPosition(position);
+	Quackle::Move solved = solver.solve(0);
+	UVcout << "solve: " << solved << endl;
+	passOutCheck(solved.win == 1, "passed-out endgame: solve() says the leader wins");
+	passOutCheck(solved.equity == 6, "passed-out endgame: solve() spread change is +6");
+
+	Quackle::EndgamePlayer player;
+	player.setPosition(position);
+	Quackle::MoveList moves = player.moves(10);
+	UVcout << "moves(10): " << moves << endl;
+	bool allWin = !moves.empty();
+	for (const auto &move : moves)
+		allWin = allWin && move.win == 1;
+	passOutCheck(allWin, "passed-out endgame: every reported move wins");
+
+	if (passOutFailures > 0)
+	{
+		UVcout << passOutFailures << " endgame check(s) failed" << endl;
+		exit(1);
+	}
+
+	UVcout << "all endgame checks passed" << endl;
 }

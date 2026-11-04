@@ -1,0 +1,36 @@
+------------
+Position [turnNumber = 1, current player Computer Player A (id 0) with score 300 holding V after drawing []
+   A B C D E F G H I J K L M N O 
+   ------------------------------
+ 1|=     '       =       '     =|
+ 2|  -       "       "       -  |
+ 3|    -       '   '       -    |
+ 4|'     -       '       -     '|
+ 5|        -           -        |
+ 6|  "       "       "       "  |
+ 7|    '       '   '       '    |
+ 8|=     '       Z O     '     =|
+ 9|    '       '   '       '    |
+10|  "       "       "       "  |
+11|        -           -        |
+12|'     -       '       -     '|
+13|    -       '   '       -    |
+14|  -       "       "       -  |
+15|=     '       =       '     =|
+   ------------------------------
+Move made is nonmove (score = -9999, equity = -9999, win% = 0)
+All Players: 
+Computer Player A (id 0) with score 300 holding V after drawing []
+Computer Player B (id 1) with score 296 holding Q after drawing []
+Bag (0): [empty]
+------------
+
+A's moves: -  (score = 0, equity = -999, win% = 0)
+
+solve: -  (score = 0, equity = 6, win% = 1)
+PASS passed-out endgame: solve() says the leader wins
+PASS passed-out endgame: solve() spread change is +6
+moves(10): -  (score = 0, equity = 6, win% = 1)
+
+PASS passed-out endgame: every reported move wins
+all endgame checks passed
