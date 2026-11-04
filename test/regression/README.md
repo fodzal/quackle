@@ -81,7 +81,8 @@ racks, game reports, self-play — is made deterministic by passing `--seed`;
 
 Levers covered: `anagram`, `enumerate`, `staticleaves`, `leavecalc`,
 `positions`, `report`, `htmlreport`, `selfplay` (including Speedy-vs-Speedy at a
-fixed seed), and `playability`. `randomracks` (infinite) isn't regression-testable
+fixed seed, and 3- and 4-player games via `--players`), `playability`, and `sim`.
+Multiplayer positions and reports use `multiplayer-crash.gcg` (4 players). `randomracks` (infinite) isn't regression-testable
 and is left out. `worddump` isn't asserted on directly — its output shape depends
 on whether a gaddag is present — but it's used internally to build gaddags (below).
 

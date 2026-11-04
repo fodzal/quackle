@@ -156,8 +156,8 @@ struct SimmedMove
 	{
 	}
 
-	// + our scores - their scores + residual, except if we have no levels,
-	// in which case returns move.equity
+	// + our scores - the mean opponent's scores + residual, except if we
+	// have no levels, in which case returns move.equity
 	double calculateEquity() const;
 
 	// average wins value * 100, except if we have no win percentage data,
@@ -177,6 +177,7 @@ struct SimmedMove
 	AveragedValue residual;
 	AveragedValue gameSpread;
 	AveragedValue wins;
+	int opponentCount = 1;
 
 	PositionStatistics getPositionStatistics(int level, int playerIndex) const;
 

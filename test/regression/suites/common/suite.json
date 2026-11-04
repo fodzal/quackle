@@ -10,8 +10,10 @@
     { "name": "positions-deadwood",   "mode": "positions", "positions": ["deadwoodendgame.gcg"] },
     { "name": "positions-fivepoint",  "mode": "positions", "positions": ["fivepoint.gcg"] },
     { "name": "positions-multi",      "mode": "positions", "positions": ["preendgame.gcg", "logan.gcg"] },
+    { "name": "positions-4players",   "mode": "positions", "positions": ["multiplayer-crash.gcg"] },
 
     { "name": "report-logan",         "mode": "report",     "positions": ["logan.gcg"] },
+    { "name": "report-4players",      "mode": "report",     "positions": ["multiplayer-crash.gcg"] },
     { "name": "htmlreport-logan",     "mode": "htmlreport", "positions": ["logan.gcg"] }
   ]
 }

@@ -58,7 +58,7 @@ double SmartBogowin::bogopoints(Move &move)
 		return move.equity - 1000;
 
 	int spread = m_simulator.currentPosition().spread(m_simulator.currentPosition().currentPlayer().id());
-	int tiles = m_simulator.currentPosition().bag().size() + 7;
+	int tiles = m_simulator.currentPosition().bag().size() + QUACKLE_PARAMETERS->rackSize();
 
 	if (move.win <= QUACKLE_STRATEGY_PARAMETERS->bogowin(-300, tiles, 0))
 		return move.equity - 1000;
@@ -89,7 +89,8 @@ MoveList SmartBogowin::moves(int nmoves)
 {
 	Stopwatch stopwatch;
 
-	if (currentPosition().bag().empty())
+	// The endgame solver reads every rack, which is only fair when one opponent holds all unseen tiles.
+	if (currentPosition().bag().empty() && currentPosition().players().size() <= 2)
 	{
 		signalFractionDone(0);
 		EndgamePlayer endgame;

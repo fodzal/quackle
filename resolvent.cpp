@@ -46,7 +46,12 @@ MoveList Resolvent::moves(int nmoves)
 
 	ComputerPlayer *delegatee;
 
-	if (m_simulator.currentPosition().bag().empty())
+	// Endgame and Preendgame assume the only unseen rack is the one opponent's.
+	if (currentPosition().players().size() > 2)
+	{
+		delegatee = new SmartBogowin;
+	}
+	else if (m_simulator.currentPosition().bag().empty())
 	{
 		// Case 1: Straight endgame.
 		delegatee = new EndgamePlayer;

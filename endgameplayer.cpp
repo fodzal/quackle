@@ -39,7 +39,8 @@ Move EndgamePlayer::move()
 
 MoveList EndgamePlayer::moves(int nmoves)
 {
-	if (currentPosition().bag().size() > 0)
+	// The endgame solver reads every rack, which is only fair when one opponent holds all unseen tiles.
+	if (currentPosition().bag().size() > 0 || currentPosition().players().size() > 2)
 	{
 #ifdef DEBUG_ENDGAME
 		UVcout << "EndgamePlayer returning statically evaluated play." << endl;

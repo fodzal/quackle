@@ -92,7 +92,7 @@ checkPlayerName(const QString& computer)
 }
 
 TestHarness::TestHarness()
-	: m_computerPlayerToTest(0), m_computerPlayer2ToTest(0), m_quiet(false)
+	: m_computerPlayerToTest(0), m_computerPlayer2ToTest(0), m_quiet(false), m_playerCount(2)
 {
 	m_gamesDir = "games";
 	m_dataManager.setComputerPlayers(Quackle::ComputerPlayerCollection::fullCollection());
@@ -128,6 +128,8 @@ const char *usage =
 "--build; when mode is anagram, do not require that all letters be used.\n"
 "--quiet; print nothing during selfplay games (default false).\n"
 "--repetitions=integer; the number of games for selfplay (default 1000).\n"
+"--players=integer; the number of players in selfplay games (default 2).\n"
+"           Seats alternate between --computer and --computer2.\n"
 "--threads=integer; simulation worker threads for the computer players.\n"
 "--qos=efficient|balanced|performance; simulation thread priority. Also sets\n"
 "      the thread count this machine advises at that priority, unless\n"
@@ -144,6 +146,7 @@ void TestHarness::executeFromArguments()
 	QString repString;
 	QString threadString;
 	QString qosString;
+	QString playersString;
 	bool build;
 	QString letters;
 	bool help;
@@ -161,6 +164,7 @@ void TestHarness::executeFromArguments()
 	opts.addOption('t', "letters", &letters);
 	opts.addOption('n', "threads", &threadString);
 	opts.addOption('q', "qos", &qosString);
+	opts.addOption('p', "players", &playersString);
 	opts.addRepeatableOption("position", &m_positions);
 
 	opts.addSwitch("report", &report);
@@ -191,6 +195,13 @@ void TestHarness::executeFromArguments()
 	        seed = seedString.toUInt();
 	if (!repString.isNull())
 	        reps = repString.toUInt();
+	if (!playersString.isNull())
+		m_playerCount = playersString.toInt();
+	if (m_playerCount < 1 || m_playerCount > 26)
+	{
+		UVcout << "--players must be between 1 and 26" << endl;
+		exit(1);
+	}
 
 
 	m_computerPlayerToTest = checkPlayerName(computer);
@@ -727,15 +738,15 @@ void TestHarness::selfPlayGame(unsigned int gameNumber, bool reports, bool playa
 
 	Quackle::PlayerList players;
 
-	Quackle::Player compyA(m_computerPlayerToTest->name() + MARK_UV(" A"), Quackle::Player::ComputerPlayerType, 0);
-	compyA.setAbbreviatedName(MARK_UV("A"));
-	compyA.setComputerPlayer(m_computerPlayerToTest);
-	players.push_back(compyA);
-
-	Quackle::Player compyB(m_computerPlayer2ToTest->name() + MARK_UV(" B"), Quackle::Player::ComputerPlayerType, 1);
-	compyB.setAbbreviatedName(MARK_UV("B"));
-	compyB.setComputerPlayer(m_computerPlayer2ToTest);
-	players.push_back(compyB);
+	for (int seat = 0; seat < m_playerCount; ++seat)
+	{
+		Quackle::ComputerPlayer *computer = seat % 2 == 0 ? m_computerPlayerToTest : m_computerPlayer2ToTest;
+		const UVString letter(1, MARK_UV('A') + seat);
+		Quackle::Player compy(computer->name() + MARK_UV(" ") + letter, Quackle::Player::ComputerPlayerType, seat);
+		compy.setAbbreviatedName(letter);
+		compy.setComputerPlayer(computer);
+		players.push_back(compy);
+	}
 
 	game.setPlayers(players);
 	game.associateKnownComputerPlayers();
@@ -747,7 +758,7 @@ void TestHarness::selfPlayGame(unsigned int gameNumber, bool reports, bool playa
 	QElapsedTimer time;
 	time.start();
 
-	const int playahead = 50;
+	const int playahead = 25 * max(2, m_playerCount);
 	int i;
 	for (i = 0; i < playahead; ++i)
 	{
@@ -1260,6 +1271,101 @@ void checkAbort(const Quackle::GamePosition &position)
 }
 }
 
+namespace
+{
+
+Quackle::Game multiplayerGame(Quackle::ComputerPlayer *computer, int playerCount)
+{
+	Quackle::Game game;
+	Quackle::PlayerList players;
+	for (int seat = 0; seat < playerCount; ++seat)
+	{
+		const UVString letter(1, MARK_UV('A') + seat);
+		Quackle::Player player(computer->name() + MARK_UV(" ") + letter, Quackle::Player::ComputerPlayerType, seat);
+		player.setAbbreviatedName(letter);
+		player.setComputerPlayer(computer);
+		players.push_back(player);
+	}
+	game.setPlayers(players);
+	game.associateKnownComputerPlayers();
+	game.addPosition();
+	return game;
+}
+
+LongLetterString sortedUnseen(const Quackle::GamePosition &position)
+{
+	LongLetterString tiles = position.unseenBag().tiles();
+	std::sort(tiles.begin(), tiles.end());
+	return tiles;
+}
+
+void checkMultiplayer(Quackle::ComputerPlayer *computer)
+{
+	Quackle::SimmedMove weighed(Quackle::Move::createPassMove());
+	weighed.opponentCount = 2;
+	weighed.levels.push_back(leveled({ { 30 }, { 10 }, { 20 } }));
+	weighed.residual.incorporateValue(0);
+	check(weighed.calculateEquity() == 15, "equity subtracts the mean opponent's score");
+
+	Quackle::Game game = multiplayerGame(computer, 3);
+	game.currentPosition().kibitz(4);
+
+	Quackle::Simulator simulator;
+	simulator.setThreadCount(simThreadCount);
+	simulator.setPosition(game.currentPosition());
+	simulator.simulate(2, 8);
+
+	bool perOpponent = !simulator.simmedMoves().empty();
+	bool threeWide = perOpponent;
+	bool probabilities = perOpponent;
+	for (const auto &it : simulator.simmedMoves())
+	{
+		if (it.opponentCount != 2)
+			perOpponent = false;
+		if (it.levels.empty() || it.levels[0].statistics.size() != 3)
+			threeWide = false;
+		if (!it.wins.hasValues() || it.wins.averagedValue() < 0 || it.wins.averagedValue() > 1)
+			probabilities = false;
+	}
+	check(perOpponent, "a three-player simulation weighs two opponents");
+	check(threeWide, "a three-player level holds one statistic per player");
+	check(probabilities, "three-player win estimates are probabilities");
+
+	while (!game.currentPosition().gameOver() && !game.currentPosition().bag().empty())
+		game.haveComputerPlay();
+
+	Quackle::GamePosition position = game.currentPosition();
+	check(!position.gameOver() && position.bag().empty(), "a three-player game reaches an empty bag");
+
+	std::map<int, unsigned int> rackSizes;
+	for (const auto &it : position.players())
+		rackSizes[it.id()] = it.rack().size();
+	const LongLetterString unseen = sortedUnseen(position);
+
+	Quackle::Simulator::randomizeOppoRacks(position, Quackle::Rack());
+
+	bool sizesKept = true;
+	for (const auto &it : position.players())
+		if (it.rack().size() != rackSizes[it.id()])
+			sizesKept = false;
+	check(sizesKept, "with the bag empty, each opponent's random rack keeps its tile count");
+	check(position.bag().empty() && sortedUnseen(position) == unseen, "with the bag empty, random racks share out exactly the unseen tiles");
+
+	game.currentPosition().kibitz(3);
+	Quackle::Simulator playout;
+	playout.setThreadCount(simThreadCount);
+	playout.setPosition(game.currentPosition());
+	playout.simulate(-1, 4);
+
+	bool decided = !playout.simmedMoves().empty();
+	for (const auto &it : playout.simmedMoves())
+		if (it.wins.incorporatedValues() != 4 || it.wins.averagedValue() < 0 || it.wins.averagedValue() > 1)
+			decided = false;
+	check(decided, "a three-player empty-bag playout yields a win estimate per iteration");
+}
+
+}
+
 void TestHarness::simulation()
 {
 	checkLevelListIncorporation();
@@ -1287,6 +1393,7 @@ void TestHarness::simulation()
 	checkLog(game.currentPosition());
 	checkSingleCandidateBatch(game.currentPosition());
 	checkAbort(game.currentPosition());
+	checkMultiplayer(m_computerPlayerToTest);
 
 	if (simFailures > 0)
 	{
