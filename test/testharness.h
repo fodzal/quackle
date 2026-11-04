@@ -153,6 +153,7 @@ protected:
 	Quackle::ComputerPlayer *m_computerPlayer2ToTest;
 	bool m_quiet;
 	int m_arenaStartBag = -1;
+	int m_playerCount;
 	QString m_gamesDir;
 	QString m_lexicon;
 	QString m_alphabet;

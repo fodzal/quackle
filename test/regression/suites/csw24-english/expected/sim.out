@@ -36,4 +36,12 @@ PASS aborting partway stops short of the requested iterations
 PASS an aborted batch leaves every candidate evenly sampled
 PASS a batch after an abort runs its own iterations
 PASS an abort leaves no replies behind for the next batch
+PASS equity subtracts the mean opponent's score
+PASS a three-player simulation weighs two opponents
+PASS a three-player level holds one statistic per player
+PASS three-player win estimates are probabilities
+PASS a three-player game reaches an empty bag
+PASS with the bag empty, each opponent's random rack keeps its tile count
+PASS with the bag empty, random racks share out exactly the unseen tiles
+PASS a three-player empty-bag playout yields a win estimate per iteration
 all simulator checks passed

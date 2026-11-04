@@ -1,0 +1,43 @@
+Testing 1 positions with Speedy Player.
+Testing game from positions/multiplayer-crash.gcg
+Testing Speedy Player on:
+------------
+Position [turnNumber = 5, current player Human Player Chappy (id 1) with score 184 holding LNS after drawing [R]
+   A B C D E F G H I J K L M N O 
+   ------------------------------
+ 1|=     '       =       '   P A|
+ 2|  -       "       " G     O N|
+ 3|    -       '   '   A   - U T|
+ 4|'     -       '     W E   N E|
+ 5|        -           K A   C  |
+ 6|  "       J       R E V   E R|
+ 7|    '     O F   ' A R E ' R E|
+ 8|=     '   B I C E P   '     A|
+ 9|    '       Z   X I     '   D|
+10|  "       "       N       H I|
+11|      M I s M O V E D     E L|
+12|'   Q A T     '   S O U R L Y|
+13|  N I T     '   '       - O  |
+14|  -   S E I S I N G       T  |
+15|=     '   F I D       '     =|
+   ------------------------------
+Move made is nonmove (score = -9999, equity = -9999, win% = 0)
+All Players: 
+Human Player Mark Ogden (id 0) with score 172 holding AABGLOT after drawing [GOT]
+Human Player Chappy (id 1) with score 184 holding LNS after drawing [R]
+Human Player Nicole Gorham (id 2) with score 221 holding AHIOUWY after drawing [U]
+Human Player Daniel Southam (id 3) with score 149 holding ADEEOTU after drawing [U]
+Bag (1): ?
+------------
+
+Generating moves...
+K2 ......S (score = 27, equity = 30.4141, win% = 0)
+3K .L (score = 10, equity = 22.6797, win% = 0)
+3M N.. (score = 6, equity = 18.2812, win% = 0)
+L3 L....N (score = 12, equity = 18.043, win% = 0)
+H13 L.. (score = 4, equity = 16.6797, win% = 0)
+K11 ..L (score = 4, equity = 16.6797, win% = 0)
+K11 ..N (score = 4, equity = 16.2812, win% = 0)
+E10 L.. (score = 3, equity = 15.6797, win% = 0)
+H11 .N (score = 3, equity = 15.2812, win% = 0)
+E10 N.. (score = 3, equity = 15.2812, win% = 0)

@@ -17,6 +17,7 @@
  */
 
 #include <iostream>
+#include <map>
 #include <math.h>
 
 #include "computerplayer.h"
@@ -51,6 +52,25 @@ uint64_t mixSeed(uint64_t base, uint64_t stream, uint64_t index)
 	z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
 	z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
 	return z ^ (z >> 31);
+}
+
+bool movesFirst(const GamePosition &position, int playerId, int otherId)
+{
+	const PlayerList &players = position.players();
+	const int count = int(players.size());
+	int current = 0;
+	while (current < count && players[current].id() != position.currentPlayer().id())
+		++current;
+
+	for (int i = 0; i < count; ++i)
+	{
+		const int id = players[(current + i) % count].id();
+		if (id == playerId)
+			return true;
+		if (id == otherId)
+			return false;
+	}
+	return true;
 }
 }
 
@@ -452,6 +472,9 @@ void Simulator::simulate(int plies, int iterations)
 
 	m_sendQueue.setConstants(constants);
 
+	for (auto &simmedMove : m_simmedMoves)
+		simmedMove.opponentCount = max(1, constants.playerCount - 1);
+
 	if (isLogging() && !m_hasHeader)
 		writeLogHeader();
 
@@ -643,7 +666,14 @@ void Simulator::simulateOnePosition(SimmedMoveMessage &message, const SimmedMove
 	randomizeOppoRacks(game.currentPosition(), *partialOppoRack);
 	randomizeDrawingOrder(game.currentPosition());
 
+	const int opponentCount = max(1, constants.playerCount - 1);
+
+	// residual is ours minus the mean opponent's; pairResidual[id] is ours minus that opponent's.
 	double residual = 0;
+	map<int, double> pairResidual;
+	for (const auto &player : game.currentPosition().players())
+		if (player.id() != constants.startPlayerId)
+			pairResidual[player.id()] = 0;
 
 	int levelNumber = 1;
 	for (LevelList::iterator levelIt = message.levels.begin();
@@ -730,9 +760,16 @@ void Simulator::simulateOnePosition(SimmedMoveMessage &message, const SimmedMove
 				}
 
 				if (playerId == constants.startPlayerId)
+				{
 					residual += residualAddend;
+					for (auto &entry : pairResidual)
+						entry.second += residualAddend;
+				}
 				else
-					residual -= residualAddend;
+				{
+					residual -= residualAddend / opponentCount;
+					pairResidual[playerId] -= residualAddend;
+				}
 			}
 
 			// committing the move will account for deadwood again
@@ -751,24 +788,48 @@ void Simulator::simulateOnePosition(SimmedMoveMessage &message, const SimmedMove
 	}
 
 	message.residual = residual;
-	int spread = game.currentPosition().spread(constants.startPlayerId);
+	const GamePosition &position = game.currentPosition();
+	const int spread = position.spread(constants.startPlayerId);
 	message.gameSpread = spread;
 
-	if (game.currentPosition().gameOver())
+	const PlayerList scores = position.endgameAdjustedScores();
+	int ourScore = 0;
+	for (const auto &player : scores)
+		if (player.id() == constants.startPlayerId)
+			ourScore = player.score();
+
+	if (position.gameOver())
 	{
 		message.bogowin = false;
-		message.wins = spread > 0 ? 1 : spread == 0 ? 0.5 : 0;
+		if (spread != 0)
+			message.wins = spread > 0 ? 1 : 0;
+		else
+		{
+			int leaders = 1;
+			for (const auto &player : scores)
+				if (player.id() != constants.startPlayerId && player.score() == ourScore)
+					++leaders;
+			message.wins = 1.0 / leaders;
+		}
 	}
 	else
 	{
 		message.bogowin = true;
-		if (game.currentPosition().currentPlayer().id() == constants.startPlayerId)
-			message.wins = QUACKLE_STRATEGY_PARAMETERS->bogowin(
-				spread + residual, game.currentPosition().bag().size() + QUACKLE_PARAMETERS->rackSize(), 0);
-		else
-			message.wins = 1.0
-				- QUACKLE_STRATEGY_PARAMETERS->bogowin(
-					-spread - residual, game.currentPosition().bag().size() + QUACKLE_PARAMETERS->rackSize(), 0);
+		// The bogowin table models a duel: each opponent is one independent duel, and with N players a
+		// duel only gets 2/N of the turns left in the bag.
+		const int unseen = position.bag().size() * 2 / constants.playerCount + QUACKLE_PARAMETERS->rackSize();
+		message.wins = 1;
+		for (const auto &opponent : scores)
+		{
+			if (opponent.id() == constants.startPlayerId)
+				continue;
+
+			const double lead = ourScore - opponent.score() + pairResidual[opponent.id()];
+			if (movesFirst(position, constants.startPlayerId, opponent.id()))
+				message.wins *= QUACKLE_STRATEGY_PARAMETERS->bogowin(lead, unseen, 0);
+			else
+				message.wins *= 1.0 - QUACKLE_STRATEGY_PARAMETERS->bogowin(-lead, unseen, 0);
+		}
 	}
 }
 
@@ -832,18 +893,42 @@ void Simulator::randomizeOppoRacks(GamePosition &position, const Rack &partialOp
 
 	Bag bag(position.unseenBag());
 
+	// With the bag empty and several opponents, each one's tile count is known; only the split is not.
+	const bool keepRackSizes = position.bag().empty() && position.players().size() > 2;
+	const int partialOppoId = position.nextPlayer()->id();
+
+	// setPlayerRack only takes tiles from the bag, not from another opponent's rack.
+	map<int, unsigned int> rackSizes;
+	if (position.players().size() > 2)
+	{
+		for (const auto &it : position.players())
+		{
+			if (it == position.currentPlayer())
+				continue;
+			rackSizes[it.id()] = it.rack().size();
+			position.setPlayerRack(it.id(), Rack(), /* adjust bag */ true);
+		}
+	}
+
 	for (const auto &it : position.players())
 	{
 		if (it == position.currentPlayer())
 			continue;
 
 		// TODO -- some kind of inference engine can be inserted here
-		Rack rack = partialOppoRack;
+		Rack rack = it.id() == partialOppoId ? partialOppoRack : Rack();
 
 		// We must refill the partial rack from a bag that does not
 		// contain the partial rack.
 		bag.removeLetters(rack.tiles());
-		bag.refill(rack);
+		if (keepRackSizes)
+		{
+			const unsigned int size = rackSizes[it.id()];
+			while (rack.size() < size && !bag.empty())
+				rack.setTiles(String::alphabetize(rack.tiles() + bag.pluck()));
+		}
+		else
+			bag.refill(rack);
 
 		position.setPlayerRack(it.id(), rack, /* adjust bag */ true);
 	}
@@ -1018,7 +1103,7 @@ double SimmedMove::calculateEquity() const
 			if (scoresIt == levelIt.statistics.begin())
 				equity += (*scoresIt).score.averagedValue();
 			else
-				equity -= (*scoresIt).score.averagedValue();
+				equity -= (*scoresIt).score.averagedValue() / opponentCount;
 		}
 	}
 
