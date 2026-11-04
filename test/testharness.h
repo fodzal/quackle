@@ -88,8 +88,16 @@ public:
 	// Allocates and loads a game from the file.
 	Quackle::Game *createNewGame(const QString &filename);
 
+	struct SelfPlayResult
+	{
+		int scoreA = 0;
+		int scoreB = 0;
+		int moves = 0;
+		bool finished = false;
+	};
+
 	void selfPlayGames(unsigned int seed, unsigned int reps, bool reports, bool playability);
-	void selfPlayGame(unsigned int gameNumber, bool reports, bool playability);
+	SelfPlayResult selfPlayGame(unsigned int gameNumber, bool reports, bool playability);
 
 	// Sets the positions that will be tested.
 	void setPositions(const QStringList &positions)

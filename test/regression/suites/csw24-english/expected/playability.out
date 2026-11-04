@@ -117,3 +117,4 @@ NONGS 1
 E(D) 1
 GAME OVER Speedy Player A : 549 Speedy Player B : 375 
 Game 1 played in <N> seconds with 26 moves
+SELFPLAY SUMMARY games 2, A wins 1, B wins 1, ties 0, unfinished 0, mean spread A-B 86.5

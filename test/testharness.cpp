@@ -126,7 +126,7 @@ const char *usage =
 "--report; generate reports for selfplay games (default false).\n"
 "--letters; letters to anagram.\n"
 "--build; when mode is anagram, do not require that all letters be used.\n"
-"--quiet; print nothing during selfplay games (default false).\n"
+"--quiet; during selfplay, print only the summary (default false).\n"
 "--repetitions=integer; the number of games for selfplay (default 1000).\n"
 "--threads=integer; simulation worker threads for the computer players.\n"
 "--qos=efficient|balanced|performance; simulation thread priority. Also sets\n"
@@ -717,12 +717,39 @@ void TestHarness::selfPlayGames(unsigned int seed, unsigned int reps, bool repor
 	// mode is reproducible; seed is unused here.
 	(void)seed;
 
+	unsigned int winsA = 0;
+	unsigned int winsB = 0;
+	unsigned int ties = 0;
+	unsigned int unfinished = 0;
+	long long totalSpread = 0;
+
 	for (unsigned int i = 0; i < reps; i++)
-		selfPlayGame(i, reports, playability);
+	{
+		const SelfPlayResult result = selfPlayGame(i, reports, playability);
+		if (!result.finished)
+		{
+			++unfinished;
+			continue;
+		}
+
+		totalSpread += result.scoreA - result.scoreB;
+		if (result.scoreA > result.scoreB)
+			++winsA;
+		else if (result.scoreA < result.scoreB)
+			++winsB;
+		else
+			++ties;
+	}
+
+	const unsigned int finished = winsA + winsB + ties;
+	UVcout << "SELFPLAY SUMMARY games " << finished << ", A wins " << winsA << ", B wins " << winsB << ", ties " << ties << ", unfinished "
+		   << unfinished << ", mean spread A-B " << (finished ? static_cast<double>(totalSpread) / finished : 0.0) << endl;
 }
 
-void TestHarness::selfPlayGame(unsigned int gameNumber, bool reports, bool playability)
+TestHarness::SelfPlayResult TestHarness::selfPlayGame(unsigned int gameNumber, bool reports, bool playability)
 {
+	SelfPlayResult result;
+
 	Quackle::Game game;
 
 	Quackle::PlayerList players;
@@ -747,20 +774,28 @@ void TestHarness::selfPlayGame(unsigned int gameNumber, bool reports, bool playa
 	QElapsedTimer time;
 	time.start();
 
-	const int playahead = 50;
+	// Six scoreless turns end any game, so this only guards against a broken engine.
+	const int maxMoves = 1000;
 	int i;
-	for (i = 0; i < playahead; ++i)
+	for (i = 0; i < maxMoves; ++i)
 	{
 		if (game.currentPosition().gameOver())
 		{
-			if (!m_quiet) {
+			result.finished = true;
+			const PlayerList players = game.currentPosition().endgameAdjustedScores();
+			for (PlayerList::const_iterator it = players.begin(); it != players.end(); ++it)
+			{
+				if (it->id() == 0)
+					result.scoreA = it->score();
+				else
+					result.scoreB = it->score();
+			}
+
+			if (!m_quiet)
+			{
 				UVcout << "GAME OVER ";
-				GamePosition &pos = game.currentPosition();
-				const PlayerList players = pos.endgameAdjustedScores();
-				for (PlayerList::const_iterator it = players.begin();
-					it != players.end(); ++it) {
+				for (PlayerList::const_iterator it = players.begin(); it != players.end(); ++it)
 					UVcout << it->name() << " : " << it->score() << " ";
-				}
 				UVcout << endl;
 			}
 			break;
@@ -768,35 +803,38 @@ void TestHarness::selfPlayGame(unsigned int gameNumber, bool reports, bool playa
 
 		const Quackle::Player player(game.currentPosition().currentPlayer());
 
-   		if (!m_quiet) {
-            if (playability) {
-                game.currentPosition().kibitz(100);
-                Quackle::MoveList moves = game.currentPosition().moves();
-                float bestEquity = moves.front().equity - 0.0001f;
-                Quackle::MoveList tops;
-                for (MoveList::iterator it = moves.begin(); it != moves.end(); ++it) {
-                    if ((*it).equity >= bestEquity) {
-                        tops.push_back(*it);
-                    }
-                }
-                size_t numTops = tops.size();
-                for (MoveList::iterator it = tops.begin(); it != tops.end(); ++it) {
-                    MoveList words = game.currentPosition().allWordsFormedBy(*it);
-                    for (MoveList::iterator it2 = words.begin(); it2 != words.end(); ++it2) {
-                        Rack word = (*it2).prettyTiles();
-                        UVcout << word << " " << numTops << endl;
-                    }
-                }
-                int toPlay = QUACKLE_DATAMANAGER->randomInteger(0, (int)numTops - 1);
-                //UVcout << "playing move #" << toPlay << endl;
-                game.commitMove(tops[toPlay]);
-            } else {
-                Quackle::Move compMove(game.haveComputerPlay());
-                UVcout << "with " << player.rack() << ", " << player.name()
-                       << " commits to " << compMove << endl;
-            }
-        }
+		if (playability)
+		{
+			game.currentPosition().kibitz(100);
+			Quackle::MoveList moves = game.currentPosition().moves();
+			float bestEquity = moves.front().equity - 0.0001f;
+			Quackle::MoveList tops;
+			for (MoveList::iterator it = moves.begin(); it != moves.end(); ++it)
+			{
+				if ((*it).equity >= bestEquity)
+					tops.push_back(*it);
+			}
+			size_t numTops = tops.size();
+			for (MoveList::iterator it = tops.begin(); it != tops.end(); ++it)
+			{
+				MoveList words = game.currentPosition().allWordsFormedBy(*it);
+				for (MoveList::iterator it2 = words.begin(); it2 != words.end(); ++it2)
+				{
+					Rack word = (*it2).prettyTiles();
+					UVcout << word << " " << numTops << endl;
+				}
+			}
+			int toPlay = QUACKLE_DATAMANAGER->randomInteger(0, (int)numTops - 1);
+			game.commitMove(tops[toPlay]);
+		}
+		else
+		{
+			Quackle::Move compMove(game.haveComputerPlay());
+			if (!m_quiet)
+				UVcout << "with " << player.rack() << ", " << player.name() << " commits to " << compMove << endl;
+		}
 	}
+	result.moves = i;
 
 	int secondsElapsed = static_cast<int>(time.elapsed() / 1000);
 	if (!m_quiet) {
@@ -805,7 +843,7 @@ void TestHarness::selfPlayGame(unsigned int gameNumber, bool reports, bool playa
 	}
 
 	if (!reports) {
-	    return;
+		return result;
 	}
 
 	Quackle::StaticPlayer playah;
@@ -825,7 +863,7 @@ void TestHarness::selfPlayGame(unsigned int gameNumber, bool reports, bool playa
 	if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text))
 	{
 		UVcout << "Could not open gcg output file" << endl;
-		return;
+		return result;
 	}
 
 	QuackleIO::GCGIO io;
@@ -837,7 +875,7 @@ void TestHarness::selfPlayGame(unsigned int gameNumber, bool reports, bool playa
 	if (!outFileReport.open(QIODevice::WriteOnly | QIODevice::Text))
 	{
 		UVcout << "Could not open report output file" << endl;
-		return;
+		return result;
 	}
 	QTextStream outReport(&outFileReport);
 	outReport << QuackleIO::Util::uvStringToQString(report);
@@ -845,6 +883,7 @@ void TestHarness::selfPlayGame(unsigned int gameNumber, bool reports, bool playa
 
 	outFile.close();
 	outFileReport.close();
+	return result;
 }
 
 static void dumpGaddag(const GaddagNode *node, const LetterString &prefix)

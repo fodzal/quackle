@@ -72,3 +72,4 @@ with AAEELLT, Speedy Player A commits to B1 .LEATE (score = 16, equity = 1, win%
 with EMU, Speedy Player B commits to A5 EMU (score = 11, equity = 15, win% = 1)
 GAME OVER Speedy Player A : 436 Speedy Player B : 495 
 Game 2 played in <N> seconds with 22 moves
+SELFPLAY SUMMARY games 3, A wins 2, B wins 1, ties 0, unfinished 0, mean spread A-B 8.33333
