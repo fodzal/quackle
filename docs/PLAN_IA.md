@@ -27,6 +27,7 @@ précédente ; les fusionner dans l'ordre). `docs/ai-plan` est à part, sur `mas
 | 6 | `fix/pass-candidate` | B1 : la passe est candidate quand le sac est vide | 26/26 ; **pas encore de position de test** (viendra avec 0.6) |
 | 7 | `fix/strategy-loading` | B5, B6 (écart interpolé), B7, ROADMAP C.1 | 26/26, goldens inchangés |
 | 8 | `fix/bogowin-symmetry` | B3 : référence et challenger comparés au même nombre de tirages | 26/26 ; smoke test ASan Championship |
+| 9 | `test/bench` | 0.5 — `--mode bench` ; temps de l'arène par phase (milieu, preendgame, finale) | 26/26 ; golden arène ré-enregistré (format de ligne seulement) |
 
 Non traités pour l'instant : B9 (chrono vérifié entre candidats seulement), branches
 existantes `fix/endgame-passout-spread`, `fix/report-considered-move-endgame`,
@@ -39,6 +40,29 @@ utile, car les playouts de finale peuvent désormais contenir des passes).
 |---|---|---|---|---|---|---|
 | 2026-11-05 | Static | Championship 132/330 | 8 | 75,0 % ± 18,5 | +19 ± 33 | B 12,7 |
 | 2026-11-05 | Championship 20/50 `crn=0` | idem `crn=1` | 64 | 53,5 % ± 7,4 | +7,4 ± 15,6 | ≈ 5,4 |
+| 2026-11-05 | Static | Championship 132/330 (graine 5000) | 100 | **56,5 % ± 6,2** (Elo +45, +2..+90) | +6,7 ± 16,2 | B 19,8 |
+
+**Référence (branche 8).** À plein budget, Championship ne bat Static que de ≈ 45 Elo en
+français, pour 20 s par coup ; le 75 % sur 8 paires était du bruit. La simulation actuelle
+apporte donc peu. Pistes, à départager avec le corpus et l'arène :
+- la table `bogowin` utilisée en `ods5` est celle de `data/strategy/default`, apprise en anglais
+  (100 tuiles, autre distribution) ; seuls les superleaves sont propres à `ods5` ;
+- 2 plis et 13 candidats : l'horizon court (H1) et la sélection statique des candidats ;
+- variance : ± 16 points d'écart par paire, même au plein budget.
+Les 3 dernières parties ont pris ≈ 1 600 s de plus que les autres : des preendgames sans
+plafond de temps (`timelimit=0`), ce que la décomposition par phase de la branche 9 mesurera.
+
+### Bench (Release, 1 thread, `--seed=1`, 14 positions de milieu de partie × 20 tours)
+
+| Date | Lexique | `staticBestMove`/s | `kibitz(15)`/s | playaheads 2 plis/s |
+|---|---|---|---|---|
+| 2026-11-05 | `ods5` | 720 | 394 | 545 |
+| 2026-11-05 | `nwl23` | 1 739 | 986 | 395 |
+
+Un playahead de 2 plis coûte 1,8 ms en `ods5` et 2,5 ms en `nwl23`, alors qu'une génération
+complète coûte 1,4 ms et 0,6 ms : en anglais, l'essentiel du coût d'un playahead est hors du
+générateur (copies de position, tirages, évaluation). Cela confirme V1 (`perf/no-copies`)
+comme première PR de vitesse, sous réserve du profilage.
 
 Débit observé : 128 parties Championship 20/50 contre lui-même en 44 min. À plein budget
 (132/330), compter ≈ 35 paires/heure, soit ≈ 300 paires par nuit : intervalle ≈ ± 4,5 points
@@ -54,6 +78,9 @@ mesurable en une nuit ; le corpus de positions (0.6) reste nécessaire pour les 
   finale) : avec `timelimit=0`, le preendgame n'a plus de plafond de temps et pèse lourd.
 - 0.6 (corpus) : extraire les positions des parties de l'arène (finales où passer gagne,
   preendgames), plutôt que de les construire à la main — une finale exige les 100 tuiles.
+- Après la référence (56,5 %) : **avancer `tools/win-table` (5.3)** — une table de victoire
+  apprise sur `ods5` est peu coûteuse (self-play Static) et peut expliquer une partie du
+  faible gain de la simulation en français. À tester dans l'arène dès la phase 2 terminée.
 - Build Windows : voir `ARCHITECTURE.md` §10 (suivi des en-têtes cassé sous MSVC en
   français sans `chcp 65001`).
 
