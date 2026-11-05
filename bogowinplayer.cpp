@@ -131,9 +131,6 @@ MoveList SmartBogowin::moves(int nmoves)
 		}
 	}
 
-	UVcout << "SmartBogowin generating move from position:" << endl;
-	UVcout << currentPosition() << endl;
-
 	const double zerothPrune = m_parameters.prunePoints >= 0 ? m_parameters.prunePoints : 33;
 	int plies = m_parameters.plies >= 0 ? m_parameters.plies : 2;
 
