@@ -23,7 +23,100 @@
 #include "strategyparameters.h"
 #include "catchall.h"
 
+#include <vector>
+
 using namespace Quackle;
+
+namespace
+{
+
+// Leave values of one rack, indexed by the multiset of tiles a move uses
+// (mixed radix over the rack's distinct letters), filled on demand.
+struct LeaveCache
+{
+	const ScorePlusLeaveEvaluator *evaluator = nullptr;
+	unsigned int dataVersion = 0;
+	LetterString rack;
+	int distinct = 0;
+	Letter letters[LETTER_STRING_MAXIMUM_LENGTH];
+	int counts[LETTER_STRING_MAXIMUM_LENGTH];
+	int weights[LETTER_STRING_MAXIMUM_LENGTH];
+	int fullIndex = 0;
+	std::vector<double> values;
+	std::vector<bool> known;
+
+	bool reset(const ScorePlusLeaveEvaluator *newEvaluator, unsigned int newDataVersion, const LetterString &newRack)
+	{
+		const int maximumSubsets = 4096;
+
+		evaluator = newEvaluator;
+		dataVersion = newDataVersion;
+		rack = newRack;
+		distinct = 0;
+		for (const Letter letter : rack)
+		{
+			int i = 0;
+			while (i < distinct && letters[i] != letter)
+				++i;
+			if (i == distinct)
+			{
+				letters[distinct] = letter;
+				counts[distinct++] = 0;
+			}
+			++counts[i];
+		}
+
+		int subsets = 1;
+		fullIndex = 0;
+		for (int i = 0; i < distinct; ++i)
+		{
+			weights[i] = subsets;
+			fullIndex += counts[i] * subsets;
+			subsets *= counts[i] + 1;
+			if (subsets > maximumSubsets)
+			{
+				evaluator = nullptr;
+				return false;
+			}
+		}
+
+		values.assign(subsets, 0);
+		known.assign(subsets, false);
+		return true;
+	}
+
+	// -1 when the move uses tiles the rack does not hold.
+	int leaveIndex(const Move &move) const
+	{
+		int index = fullIndex;
+		if (move.isChallengedPhoney() || move.action == Move::BlindExchange)
+			return index;
+
+		int used[LETTER_STRING_MAXIMUM_LENGTH] = {};
+		for (const Letter tile : move.tiles())
+		{
+			Letter letter;
+			if (tile == QUACKLE_BLANK_MARK || QUACKLE_ALPHABET_PARAMETERS->isBlankLetter(tile))
+				letter = QUACKLE_BLANK_MARK;
+			else if (QUACKLE_ALPHABET_PARAMETERS->isPlainLetter(tile))
+				letter = tile;
+			else
+				continue;
+
+			int i = 0;
+			while (i < distinct && letters[i] != letter)
+				++i;
+			if (i == distinct || ++used[i] > counts[i])
+				return -1;
+			index -= weights[i];
+		}
+		return index;
+	}
+};
+
+thread_local LeaveCache leaveCache;
+
+}
 
 double Evaluator::equity(const GamePosition &position, const Move &move) const
 {
@@ -60,7 +153,22 @@ double ScorePlusLeaveEvaluator::equity(const GamePosition &position, const Move 
 
 double ScorePlusLeaveEvaluator::playerConsideration(const GamePosition &position, const Move &move) const
 {
-	return leaveValue((position.currentPlayer().rack() - move).tiles());
+	const Rack &rack = position.currentPlayer().rack();
+	const unsigned int dataVersion = QUACKLE_DATAMANAGER->evaluationDataVersion();
+	if ((leaveCache.evaluator != this || leaveCache.dataVersion != dataVersion || !(leaveCache.rack == rack.tiles()))
+		&& !leaveCache.reset(this, dataVersion, rack.tiles()))
+		return leaveValue((rack - move).tiles());
+
+	const int index = leaveCache.leaveIndex(move);
+	if (index < 0)
+		return leaveValue((rack - move).tiles());
+
+	if (!leaveCache.known[index])
+	{
+		leaveCache.values[index] = leaveValue((rack - move).tiles());
+		leaveCache.known[index] = true;
+	}
+	return leaveCache.values[index];
 }
 
 double ScorePlusLeaveEvaluator::sharedConsideration(const GamePosition &position, const Move &move) const

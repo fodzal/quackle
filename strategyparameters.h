@@ -20,7 +20,8 @@
 #define QUACKLE_STRATEGYPARAMETERS_H
 
 #include <cmath>
-#include <map>
+#include <cstdint>
+#include <unordered_map>
 #include "alphabetparameters.h"
 
 namespace Quackle
@@ -65,7 +66,21 @@ protected:
 	static const int m_bogowinArrayWidth = 601;
 	static const int m_bogowinArrayHeight = 94;
 	double m_bogowin[m_bogowinArrayWidth][m_bogowinArrayHeight];
-	typedef std::map<LetterString, double> SuperLeavesMap;
+	struct LetterStringHash
+	{
+		size_t operator()(const LetterString &s) const
+		{
+			uint64_t h = 14695981039346656037ull;
+			for (const char c : s)
+				h = (h ^ (unsigned char)c) * 1099511628211ull;
+			return (size_t)h;
+		}
+	};
+	struct LetterStringEqual
+	{
+		bool operator()(const LetterString &a, const LetterString &b) const { return a == b; }
+	};
+	typedef std::unordered_map<LetterString, double, LetterStringHash, LetterStringEqual> SuperLeavesMap;
 	SuperLeavesMap m_superleaves;
 	bool m_hasSyn2;
 	bool m_hasWorths;

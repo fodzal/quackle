@@ -39,6 +39,7 @@ void StrategyParameters::initialize(const string &lexicon)
 	m_hasVcPlace = loadVcPlace(DataManager::self()->findDataFile("strategy", lexicon, "vcplace"));
 	m_hasBogowin = loadBogowin(DataManager::self()->findDataFile("strategy", lexicon, "bogowin"));
 	m_hasSuperleaves = loadSuperleaves(DataManager::self()->findDataFile("strategy", lexicon, "superleaves"));
+	DataManager::self()->evaluationDataChanged();
 }
 
 bool StrategyParameters::loadSyn2(const string &filename)
@@ -240,7 +241,7 @@ bool StrategyParameters::loadSuperleaves(const string &filename)
 		LetterString leave = LetterString(leavebytes, leavesize);
 
 		double value = (double(intvalue) / 256.0) - 128.0;
-		m_superleaves.insert(m_superleaves.end(), SuperLeavesMap::value_type(leave, value));
+		m_superleaves.emplace(leave, value);
 	}
 
 	file.close();

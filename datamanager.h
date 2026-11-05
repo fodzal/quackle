@@ -20,6 +20,7 @@
 #define QUACKLE_DATAMANAGER_H
 
 #include <algorithm>
+#include <atomic>
 #include <iterator>
 #include <random>
 #include <string>
@@ -89,6 +90,10 @@ public:
 
 	StrategyParameters *strategyParameters();
 	void setStrategyParameters(StrategyParameters *strategyParameters);
+
+	// Changes whenever data that leave values depend on is replaced or reloaded.
+	unsigned int evaluationDataVersion() const { return m_evaluationDataVersion.load(std::memory_order_relaxed); }
+	void evaluationDataChanged() { m_evaluationDataVersion.fetch_add(1, std::memory_order_relaxed); }
 
 	// What the machine's CPUs look like, probed once when this data manager
 	// was constructed. Immutable, hence no setter.
@@ -165,6 +170,7 @@ private:
 	BoardParameters *m_boardParameters;
 	LexiconParameters *m_lexiconParameters;
 	StrategyParameters *m_strategyParameters;
+	std::atomic<unsigned int> m_evaluationDataVersion { 0 };
 
 	PlayerList m_computerPlayers;
 

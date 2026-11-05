@@ -96,6 +96,7 @@ void DataManager::setAlphabetParameters(AlphabetParameters *alphabetParameters)
 {
 	delete m_alphabetParameters;
 	m_alphabetParameters = alphabetParameters;
+	evaluationDataChanged();
 }
 
 void DataManager::setBoardParameters(BoardParameters *boardParameters)
@@ -114,6 +115,7 @@ void DataManager::setStrategyParameters(StrategyParameters *strategyParameters)
 {
 	delete m_strategyParameters;
 	m_strategyParameters = strategyParameters;
+	evaluationDataChanged();
 }
 
 void DataManager::setComputerPlayers(const PlayerList &playerList)
