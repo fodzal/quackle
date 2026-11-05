@@ -176,6 +176,10 @@ const char *usage = "Optional arguments:\n"
 					"               and --computer2. Both games of a pair draw the same tile\n"
 					"               sequence, with seats swapped; pair k uses seed --seed + k.\n"
 					"       'bench' times move generation and simulation.\n"
+					"       'wintable' plays --repetitions games of --computer against --computer2\n"
+					"                  and counts, for the player on turn, wins by tiles unseen\n"
+					"                  and lead; test/wintable/wintable.py fits these into a\n"
+					"                  bogowin table.\n"
 					"--position=game.gcg; this option can be repeated to specify positions\n"
 					"                     to test.\n"
 					"--lexicon=; sets the lexicon (default 'nwl23').\n"
@@ -300,6 +304,8 @@ void TestHarness::executeFromArguments()
 		arena(seed == numeric_limits<unsigned int>::max() ? 1 : seed, reps);
 	else if (mode == "bench")
 		bench();
+	else if (mode == "wintable")
+		winTable(reps);
 	else if (mode == "worddump")
 		wordDump();
 	else if (mode == "bingos")
@@ -1224,6 +1230,75 @@ void TestHarness::bench()
 		playaheads += (long long)position.moves().size() * iterations;
 	}
 	report("2-ply playaheads", playaheads, "playaheads", simSeconds);
+}
+
+void TestHarness::winTable(unsigned int games)
+{
+	const int maxLead = 300;
+	const int leads = 2 * maxLead + 1;
+	map<int, vector<pair<long long, double>>> cells;
+
+	for (unsigned int g = 0; g < games; ++g)
+	{
+		Quackle::PlayerList players;
+		Quackle::Player a(MARK_UV("A"), Quackle::Player::ComputerPlayerType, 0);
+		a.setComputerPlayer(m_computerPlayerToTest);
+		players.push_back(a);
+		Quackle::Player b(MARK_UV("B"), Quackle::Player::ComputerPlayerType, 1);
+		b.setComputerPlayer(m_computerPlayer2ToTest);
+		players.push_back(b);
+
+		Quackle::Game game;
+		game.setPlayers(players);
+		game.associateKnownComputerPlayers();
+		game.addPosition();
+
+		struct Sample
+		{
+			int player;
+			int unseen;
+			int lead;
+		};
+		vector<Sample> samples;
+
+		for (int moves = 0; moves < 1000 && !game.currentPosition().gameOver(); ++moves)
+		{
+			const GamePosition &position = game.currentPosition();
+			const int player = position.currentPlayer().id();
+			int unseen = position.bag().size();
+			for (const auto &other : position.players())
+				if (other.id() != player)
+					unseen += other.rack().tiles().length();
+			samples.push_back({ player, unseen, std::max(-maxLead, std::min(maxLead, position.spread(player))) });
+			game.haveComputerPlay(player == 0 ? m_computerPlayerToTest : m_computerPlayer2ToTest);
+		}
+
+		if (!game.currentPosition().gameOver())
+			continue;
+
+		int score[2] = { 0, 0 };
+		for (const auto &player : game.currentPosition().endgameAdjustedScores())
+			score[player.id()] = player.score();
+
+		for (const Sample &sample : samples)
+		{
+			const int mine = score[sample.player];
+			const int theirs = score[1 - sample.player];
+			auto &row = cells[sample.unseen];
+			if (row.empty())
+				row.assign(leads, { 0, 0.0 });
+			auto &cell = row[sample.lead + maxLead];
+			++cell.first;
+			cell.second += mine > theirs ? 1 : (mine == theirs ? 0.5 : 0);
+		}
+	}
+
+	for (const auto &row : cells)
+		for (int i = 0; i < leads; ++i)
+			if (row.second[i].first)
+				UVcout << "WINTABLE " << row.first << " " << i - maxLead << " " << row.second[i].first << " " << row.second[i].second
+					   << endl;
+	UVcout << "WINTABLE SUMMARY games " << games << endl;
 }
 
 static void dumpGaddag(const GaddagNode *node, const LetterString &prefix)

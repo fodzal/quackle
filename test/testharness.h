@@ -115,6 +115,9 @@ public:
 
 	// Times move generation and simulation on positions from a seeded Static game.
 	void bench();
+
+	// Prints win counts of the player on turn by tiles unseen and lead.
+	void winTable(unsigned int games);
 	ArenaResult arenaGame(unsigned int seed, bool bMovesFirst);
 
 	void selfPlayGames(unsigned int seed, unsigned int reps, bool reports, bool playability);

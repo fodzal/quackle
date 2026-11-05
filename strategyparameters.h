@@ -64,8 +64,9 @@ protected:
 	double m_vcPlace[QUACKLE_MAXIMUM_BOARD_SIZE][QUACKLE_MAXIMUM_BOARD_SIZE][128];
 
 	static const int m_bogowinArrayWidth = 601;
-	static const int m_bogowinArrayHeight = 94;
+	static const int m_bogowinArrayHeight = 128;
 	double m_bogowin[m_bogowinArrayWidth][m_bogowinArrayHeight];
+	int m_bogowinMaxUnseen = 0;
 	struct LetterStringHash
 	{
 		size_t operator()(const LetterString &s) const
@@ -146,8 +147,8 @@ inline double StrategyParameters::bogowin(int lead, int unseen, int /* blanks */
 	if (lead > 300)
 		return 1;
 
-	if (unseen >= m_bogowinArrayHeight)
-		unseen = m_bogowinArrayHeight - 1;
+	if (unseen > m_bogowinMaxUnseen)
+		unseen = m_bogowinMaxUnseen;
 
 	if (unseen == 0)
 	{

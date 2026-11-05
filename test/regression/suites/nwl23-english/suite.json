@@ -18,6 +18,8 @@
 
     { "name": "arena-speedy-vs-static", "mode": "arena", "args": ["--computer=Speedy Player", "--computer2=Static Player", "--repetitions=2"], "seed": 3 },
 
+    { "name": "wintable-static",       "mode": "wintable", "args": ["--computer=Static Player", "--repetitions=3"], "seed": 11 },
+
     { "name": "playability",           "mode": "playability", "args": ["--repetitions=2"], "seed": 5 },
 
     { "name": "sim",                   "mode": "sim" }

@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 
 #include "alphabetparameters.h"
 #include "boardparameters.h"
@@ -91,6 +92,8 @@ bool StrategyParameters::loadBogowin(const string &filename)
 		for (int j = 0; j < m_bogowinArrayHeight; ++j)
 			m_bogowin[i][j] = 0;
 
+	m_bogowinMaxUnseen = 0;
+
 	UVIFStream file(filename.c_str());
 
 	if (!file.is_open())
@@ -111,6 +114,7 @@ bool StrategyParameters::loadBogowin(const string &filename)
 		}
 
 		m_bogowin[lead + 300][unseen] = wins;
+		m_bogowinMaxUnseen = std::max(m_bogowinMaxUnseen, unseen);
 	}
 
 	if (skipped > 0)
