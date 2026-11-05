@@ -31,6 +31,7 @@ précédente ; les fusionner dans l'ordre). `docs/ai-plan` est à part, sur `mas
 | 10 | `perf/leaves` | V2 — superleaves en table de hachage ; cache par chevalet des valeurs de leave | 26/26, goldens inchangés ; playaheads ×1,29–1,33 |
 | 11 | `tools/win-table` | 5.3 — `--mode wintable` + `test/wintable/wintable.py` (ajustement logistique par nombre de tuiles inconnues) ; table `ods5` apprise sur 200 000 parties Static ; `test/arena/compare.py` (comparaison appariée de deux arènes) | 27/27 (nouveau golden `wintable-static`), autres goldens inchangés |
 | 12 | `ai/endgame-solver` | 4.1 (partiel) — solveur exact (alpha-bêta, approfondissement itératif, table de transposition, budget en générations) ; `endgame=N` ; `--mode endgame` | 28/28 (nouveau golden `endgame-solver`), autres goldens inchangés ; lignes prouvées rejouées sous les règles du moteur : 0 écart |
+| 13 | `perf/shadow` | V3 (partiel) — `staticBestMove` : ancres explorées par borne d'équité décroissante, arrêt sous le meilleur coup ; `--mode bestmove` | 29/29 (nouveau golden `bestmove`), autres goldens inchangés ; 0 écart sur 1 842 positions ; ≈ 45 % des ancres explorées (gain en temps à mesurer machine libre) |
 
 Non traités pour l'instant : B9 (chrono vérifié entre candidats seulement), branches
 existantes `fix/endgame-passout-spread`, `fix/report-considered-move-endgame`,
@@ -46,6 +47,13 @@ utile, car les playouts de finale peuvent désormais contenir des passes).
 | 2026-11-05 | Static | Championship 132/330 (graine 5000) | 100 | **56,5 % ± 6,2** (Elo +45, +2..+90) | +6,7 ± 16,2 | B 19,8 |
 | 2026-11-05 | Championship 33/82 | Championship 132/330 (graine 6000, branche 10) | 100 | **54,0 % ± 6,6** (Elo +28, −18..+75) | +8,5 ± 13,9 | A 8,7 / B 19,7 |
 | 2026-11-05 | Static | Championship 132/330, table `ods5` (graine 5000, branche 11) | 100 | **57,0 % ± 6,1** (Elo +49) ; apparié : +0,5 ± 7,8 | +15,7 ± 14,4 ; apparié : +8,9 ± 16,6 | B 17,1 |
+
+**Horizon (branche 11, 4 plis).** Rejouée sur les graines de la référence : 61,0 % ± 6,3
+contre Static (Elo +78), soit +4,0 ± 8,8 points par rapport à 2 plis (non significatif, mais
+meilleur résultat obtenu) ; coût 23,4 s/coup au lieu de 17,1. Face-à-face direct 4 plis contre
+2 plis à budget réduit (33/82, 200 paires, graine 7000) en cours. Ajustement : les expériences
+de recherche se font désormais à 33/82 itérations — le budget ×4 n'apportant rien de mesurable,
+cela permet 4 fois plus de paires pour le même temps.
 
 **Finale (branche 12).** Le solveur exact, comparé à l'heuristique actuelle (`Endgame` :
 top 320 coups statiques, playouts gloutons, 160 réponses adverses) sur toutes les positions à
