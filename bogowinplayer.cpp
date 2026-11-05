@@ -170,6 +170,9 @@ MoveList SmartBogowin::moves(int nmoves)
 	simmedMoves.push_back(best);
 
 	double bestbp = bogopoints(best);
+	// The leader starts on minIterations(); it is brought to maxIterations() when first challenged there,
+	// so that the comparison is between equal samples.
+	bool bestAtMaxIterations = false;
 
 	// UVcout << "firstMove: " << best << endl;
 
@@ -197,6 +200,21 @@ MoveList SmartBogowin::moves(int nmoves)
 			movebp = bogopoints(move2);
 			// UVcout << "sim it some more: " << move2 << " bogopoints: " << movebp << endl;
 			simmedMoves.push_back(move2);
+
+			if (!bestAtMaxIterations)
+			{
+				MoveList bestOnly;
+				bestOnly.push_back(best);
+				m_simulator.setIncludedMoves(bestOnly);
+				m_simulator.simulate(plies, maxIterations() - minIterations());
+				const Move extended = *m_simulator.moves(true, true).begin();
+				for (auto &simmed : simmedMoves)
+					if (simmed == best)
+						simmed = extended;
+				best = extended;
+				bestbp = bogopoints(best);
+				bestAtMaxIterations = true;
+			}
 
 			if (move2.win > best.win)
 			{
