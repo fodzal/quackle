@@ -1741,20 +1741,11 @@ void Generator::prepareShadow()
 	const int rackTiles = (int)tiles.length();
 
 	m_tileValues.clear();
-	LetterBitset rackLetters;
 	bool hasBlank = false;
 	for (const Letter tile : tiles)
 	{
-		if (tile == QUACKLE_BLANK_MARK)
-		{
-			hasBlank = true;
-			m_tileValues.push_back(0);
-		}
-		else
-		{
-			rackLetters.set(tile - QUACKLE_FIRST_LETTER);
-			m_tileValues.push_back(QUACKLE_ALPHABET_PARAMETERS->score(tile));
-		}
+		hasBlank = hasBlank || tile == QUACKLE_BLANK_MARK;
+		m_tileValues.push_back(tile == QUACKLE_BLANK_MARK ? 0 : QUACKLE_ALPHABET_PARAMETERS->score(tile));
 	}
 	std::sort(m_tileValues.begin(), m_tileValues.end(), std::greater<int>());
 
@@ -1812,7 +1803,7 @@ void Generator::prepareShadow()
 			{
 				m_crossSum[dir][row][col] = 0;
 				m_hasCross[dir][row][col] = false;
-				m_placeable[dir][row][col] = false;
+				m_maxTileValue[dir][row][col] = -1;
 				if (m_squareValue[row][col] >= 0)
 					continue;
 
@@ -1828,7 +1819,12 @@ void Generator::prepareShadow()
 					}
 
 				const LetterBitset &cross = dir == 0 ? board().vcross(row, col) : board().hcross(row, col);
-				m_placeable[dir][row][col] = (cross & rackLetters).any() || (hasBlank && cross.any());
+				int &maxValue = m_maxTileValue[dir][row][col];
+				for (const Letter tile : tiles)
+					if (tile != QUACKLE_BLANK_MARK && cross.test(tile - QUACKLE_FIRST_LETTER))
+						maxValue = std::max(maxValue, QUACKLE_ALPHABET_PARAMETERS->score(tile));
+				if (hasBlank && cross.any())
+					maxValue = std::max(maxValue, 0);
 			}
 }
 
@@ -1858,6 +1854,7 @@ double Generator::shadowBound(int row, int col, bool horizontal, int leftLimit)
 		int crossFixed = 0;
 		int letterMultipliers[QUACKLE_MAXIMUM_BOARD_SIZE];
 		int crossCoefficients[QUACKLE_MAXIMUM_BOARD_SIZE];
+		int maxTileValues[QUACKLE_MAXIMUM_BOARD_SIZE];
 	};
 	auto include = [&](Span &span, int d) {
 		int r, c;
@@ -1867,12 +1864,13 @@ double Generator::shadowBound(int row, int col, bool horizontal, int leftLimit)
 			span.boardSum += m_squareValue[r][c];
 			return true;
 		}
-		if (!m_placeable[dir][r][c] || span.placed == rackTiles)
+		if (m_maxTileValue[dir][r][c] < 0 || span.placed == rackTiles)
 			return false;
 		const int lm = QUACKLE_BOARD_PARAMETERS->letterMultiplier(r, c);
 		const int wm = QUACKLE_BOARD_PARAMETERS->wordMultiplier(r, c);
 		span.letterMultipliers[span.placed] = lm;
 		span.crossCoefficients[span.placed] = m_hasCross[dir][r][c] ? lm * wm : 0;
+		span.maxTileValues[span.placed] = m_maxTileValue[dir][r][c];
 		if (m_hasCross[dir][r][c])
 			span.crossFixed += m_crossSum[dir][r][c] * wm;
 		span.wordMultiplier *= wm;
@@ -1907,9 +1905,15 @@ double Generator::shadowBound(int row, int col, bool horizontal, int leftLimit)
 					coefficients[j] = coefficients[j - 1];
 				coefficients[j] = value;
 			}
-			int score = span.wordMultiplier * span.boardSum + span.crossFixed;
+			// Two bounds on the placed tiles: each tile used once, and each square's best allowed tile.
+			int sortedTiles = 0;
+			int squareTiles = 0;
 			for (int i = 0; i < span.placed; ++i)
-				score += m_tileValues[i] * coefficients[i];
+			{
+				sortedTiles += m_tileValues[i] * coefficients[i];
+				squareTiles += span.maxTileValues[i] * (span.letterMultipliers[i] * span.wordMultiplier + span.crossCoefficients[i]);
+			}
+			int score = span.wordMultiplier * span.boardSum + span.crossFixed + std::min(sortedTiles, squareTiles);
 			if (span.placed == rackSize)
 				score += QUACKLE_PARAMETERS->bingoBonus();
 			bound = std::max(bound, score + m_maxNonScoreEquity[span.placed]);
