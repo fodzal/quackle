@@ -178,6 +178,9 @@ struct SimmedMove
 	AveragedValue gameSpread;
 	AveragedValue wins;
 
+	// numbers this move's playaheads, which picks each one's random seed
+	long playaheadsPushed = 0;
+
 	PositionStatistics getPositionStatistics(int level, int playerIndex) const;
 
 private:
@@ -207,6 +210,8 @@ public:
 	int moveIndex = -1;
 	// one-indexed, matching the simulator's iteration count
 	int iteration = 0;
+	// seeds the worker's random numbers for this playahead
+	uint64_t seed = 0;
 	Move move;
 	LevelList levels;
 	double residual;
@@ -320,6 +325,10 @@ public:
 	// equityThreshold points below the best play and cap at
 	// maxNumberOfMoves
 	void pruneTo(double equityThreshold, int maxNumberOfMoves);
+
+	// When on (the default), the k-th playahead of every candidate draws the
+	// same oppo racks and tiles, so candidates are compared on equal luck.
+	void setCommonRandomNumbers(bool on);
 
 	// if ignore is true, oppos will always pass in simulation
 	void setIgnoreOppos(bool ignore);
@@ -438,6 +447,11 @@ protected:
 	int m_iterations;
 	bool m_ignoreOppos;
 
+	bool m_commonRandomNumbers = true;
+	// drawn from the caller's generator on the first simulate() after a reset
+	bool m_hasSeedBase = false;
+	uint64_t m_seedBase = 0;
+
 	std::vector<std::thread> m_threadPool;
 	// requested; m_threadPool stays empty until the first simulate()
 	size_t m_threadCount;
@@ -489,6 +503,11 @@ inline void Simulator::setConsideredMoves(const MoveList &moves)
 inline const MoveList &Simulator::consideredMoves() const
 {
 	return m_consideredMoves;
+}
+
+inline void Simulator::setCommonRandomNumbers(bool on)
+{
+	m_commonRandomNumbers = on;
 }
 
 inline void Simulator::setIgnoreOppos(bool ignore)

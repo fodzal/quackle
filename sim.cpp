@@ -43,6 +43,17 @@ using namespace std;
 
 std::atomic_long SimmedMove::objectIdCounter { 0 };
 
+namespace
+{
+uint64_t mixSeed(uint64_t base, uint64_t stream, uint64_t index)
+{
+	uint64_t z = base ^ (stream * 0xD1B54A32D192ED03ULL) ^ (index * 0x9E3779B97F4A7C15ULL);
+	z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+	z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+	return z ^ (z >> 31);
+}
+}
+
 Simulator::Simulator()
 	: m_logfileIsOpen(false)
 	, m_hasHeader(false)
@@ -229,6 +240,7 @@ void Simulator::resetNumbers()
 		moveIt.clear();
 
 	m_iterations = 0;
+	m_hasSeedBase = false;
 }
 
 namespace
@@ -440,6 +452,13 @@ void Simulator::simulate(int plies, int iterations)
 	if (isLogging() && !m_hasHeader)
 		writeLogHeader();
 
+	if (!m_hasSeedBase)
+	{
+		m_seedBase = ((uint64_t)QUACKLE_DATAMANAGER->randomInteger(0, 0x7fffffff) << 32)
+			| (uint64_t)QUACKLE_DATAMANAGER->randomInteger(0, 0x7fffffff);
+		m_hasSeedBase = true;
+	}
+
 	ensureThreads();
 
 	const UVString indent = playaheadIndent();
@@ -529,6 +548,7 @@ int Simulator::pushIteration(const SimmedMoveConstants &constants, const UVStrin
 		message.id = moveIt.id();
 		message.moveIndex = (int)moveIndex;
 		message.iteration = iteration;
+		message.seed = mixSeed(m_seedBase, m_commonRandomNumbers ? 0 : moveIndex + 1, moveIt.playaheadsPushed++);
 		message.move = moveIt.move;
 		// a message carries only its own playahead's samples; incorporateMessage() merges them
 		message.levels.setNumberLevels(constants.levelCount + 1);
@@ -601,8 +621,10 @@ void Simulator::simulateOnePosition(SimmedMoveMessage &message, const SimmedMove
 {
 	Game game = constants.game;
 
-	// Randomize here rather than once per iteration so that each
-	// playahead sees an independent draw of oppo racks and tiles.
+	// Seeded per playahead, so results depend neither on thread count nor on scheduling.
+	seed_seq seed = { (uint32_t)message.seed, (uint32_t)(message.seed >> 32) };
+	QUACKLE_DATAMANAGER->seedRandomNumbers(seed);
+
 	randomizeOppoRacks(game.currentPosition(), constants.partialOppoRack);
 	randomizeDrawingOrder(game.currentPosition());
 
@@ -1010,6 +1032,7 @@ void SimmedMove::clear()
 	residual.clear();
 	gameSpread.clear();
 	wins.clear();
+	playaheadsPushed = 0;
 }
 
 PositionStatistics SimmedMove::getPositionStatistics(int level, int playerIndex) const

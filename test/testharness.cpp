@@ -123,6 +123,8 @@ static void applyPlayerConfig(ComputerPlayer *player, const QString &config, con
 			parameters.prunePoints = value;
 		else if (key == "timelimit")
 			parameters.timeLimit = value != 0;
+		else if (key == "crn")
+			parameters.commonRandomNumbers = value != 0;
 		else
 		{
 			UVcout << "Unknown config key " << QuackleIO::Util::qstringToString(key) << endl;
@@ -133,7 +135,8 @@ static void applyPlayerConfig(ComputerPlayer *player, const QString &config, con
 
 	UVcout << label << " " << player->name() << ": seconds " << parameters.secondsPerTurn << ", iterations " << parameters.minIterations
 		   << ", maxiterations " << parameters.maxIterations << ", candidates " << parameters.additionalCandidates << ", plies "
-		   << parameters.plies << ", prune " << parameters.prunePoints << ", timelimit " << parameters.timeLimit << endl;
+		   << parameters.plies << ", prune " << parameters.prunePoints << ", timelimit " << parameters.timeLimit << ", crn "
+		   << parameters.commonRandomNumbers << endl;
 }
 
 TestHarness::TestHarness()
@@ -153,7 +156,8 @@ const char *usage = "Optional arguments:\n"
 					"--computer2=; sets the second selfplay player (default: same as --computer).\n"
 					"--config=key=value,...; overrides the first player's search settings:\n"
 					"         seconds, iterations, maxiterations, candidates, plies, prune,\n"
-					"         timelimit (0 = bounded by iterations only). Negative = default.\n"
+					"         timelimit (0 = bounded by iterations only), crn (0 = independent\n"
+					"         draws per candidate). Negative = default.\n"
 					"--config2=key=value,...; the same for the second selfplay player.\n"
 					"--mode=\n"
 					"       'positions' (default) runs computer player all positions.\n"

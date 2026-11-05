@@ -43,6 +43,9 @@ struct ComputerParameters
 	int plies = -1;
 	double prunePoints = -1;
 
+	// See Simulator::setCommonRandomNumbers.
+	bool commonRandomNumbers = true;
+
 	// When false, only the iteration budgets bound the search, so its depth no longer depends on machine speed.
 	bool timeLimit = true;
 };

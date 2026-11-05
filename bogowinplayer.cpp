@@ -149,6 +149,7 @@ MoveList SmartBogowin::moves(int nmoves)
 	m_simulator.pruneTo(zerothPrune, initialCandidates);
 	m_simulator.makeSureConsideredMovesAreIncluded();
 	m_simulator.setIgnoreOppos(false);
+	m_simulator.setCommonRandomNumbers(m_parameters.commonRandomNumbers);
 
 	MoveList staticMoves = m_simulator.moves(/* prune */ true, /* sort by equity */ false);
 	m_simulator.moveConsideredMovesToBeginning(staticMoves);
