@@ -91,6 +91,51 @@ checkPlayerName(const QString& computer)
 	}
 }
 
+static void applyPlayerConfig(ComputerPlayer *player, const QString &config, const char *label)
+{
+	if (!player || config.isNull())
+		return;
+
+	ComputerParameters parameters = player->parameters();
+	for (const QString &item : config.split(',', Qt::SkipEmptyParts))
+	{
+		const QStringList pair = item.split('=');
+		bool ok = pair.size() == 2;
+		const QString key = pair.value(0).trimmed();
+		const double value = ok ? pair[1].trimmed().toDouble(&ok) : 0;
+		if (!ok)
+		{
+			UVcout << "Bad config item " << QuackleIO::Util::qstringToString(item) << "; expected key=number" << endl;
+			exit(1);
+		}
+
+		if (key == "seconds")
+			parameters.secondsPerTurn = (int)value;
+		else if (key == "iterations")
+			parameters.minIterations = (int)value;
+		else if (key == "maxiterations")
+			parameters.maxIterations = (int)value;
+		else if (key == "candidates")
+			parameters.additionalCandidates = (int)value;
+		else if (key == "plies")
+			parameters.plies = (int)value;
+		else if (key == "prune")
+			parameters.prunePoints = value;
+		else if (key == "timelimit")
+			parameters.timeLimit = value != 0;
+		else
+		{
+			UVcout << "Unknown config key " << QuackleIO::Util::qstringToString(key) << endl;
+			exit(1);
+		}
+	}
+	player->setParameters(parameters);
+
+	UVcout << label << " " << player->name() << ": seconds " << parameters.secondsPerTurn << ", iterations " << parameters.minIterations
+		   << ", maxiterations " << parameters.maxIterations << ", candidates " << parameters.additionalCandidates << ", plies "
+		   << parameters.plies << ", prune " << parameters.prunePoints << ", timelimit " << parameters.timeLimit << endl;
+}
+
 TestHarness::TestHarness()
 	: m_computerPlayerToTest(0), m_computerPlayer2ToTest(0), m_quiet(false)
 {
@@ -100,38 +145,43 @@ TestHarness::TestHarness()
 
 TestHarness::~TestHarness()
 {
+	delete m_computerPlayer2ToTest;
 }
 
-const char *usage =
-"Optional arguments:\n"
-"--computer=; sets the computer player (default 'Speedy Player').\n"
-"--mode=\n"
-"       'positions' (default) runs computer player all positions.\n"
-"       'report' asks computer player for report on all positions.\n"
-"       'htmlreport' asks for html report on all positions.\n"
-"       'selfplay' runs 1000 selfplay games.\n"
-"       'playability' output info for computing playability values.\n"
-"       'enumerate' lists all racks.\n"
-"       'staticleaves' output static leave values of racks in 'racks' file.\n"
-"       'randomracks' spit out random racks (forever?).\n"
-"       'leavecalc' spit out roughish values of leaves in 'leaves' file.\n"
-"       'anagram' anagrams letters supplied in --letters.\n"
-"       'cputopology' dumps detected CPU topology and thread pool sizing.\n"
-"       'sim' checks the simulator's accumulators.\n"
-"--position=game.gcg; this option can be repeated to specify positions\n"
-"                     to test.\n"
-"--lexicon=; sets the lexicon (default 'nwl23').\n"
-"--alphabet=; sets the alphabet (default 'english').\n"
-"--seed=integer; seed the rng for reproducible sessions.\n"
-"--report; generate reports for selfplay games (default false).\n"
-"--letters; letters to anagram.\n"
-"--build; when mode is anagram, do not require that all letters be used.\n"
-"--quiet; during selfplay, print only the summary (default false).\n"
-"--repetitions=integer; the number of games for selfplay (default 1000).\n"
-"--threads=integer; simulation worker threads for the computer players.\n"
-"--qos=efficient|balanced|performance; simulation thread priority. Also sets\n"
-"      the thread count this machine advises at that priority, unless\n"
-"      --threads says otherwise.\n";
+const char *usage = "Optional arguments:\n"
+					"--computer=; sets the computer player (default 'Speedy Player').\n"
+					"--computer2=; sets the second selfplay player (default: same as --computer).\n"
+					"--config=key=value,...; overrides the first player's search settings:\n"
+					"         seconds, iterations, maxiterations, candidates, plies, prune,\n"
+					"         timelimit (0 = bounded by iterations only). Negative = default.\n"
+					"--config2=key=value,...; the same for the second selfplay player.\n"
+					"--mode=\n"
+					"       'positions' (default) runs computer player all positions.\n"
+					"       'report' asks computer player for report on all positions.\n"
+					"       'htmlreport' asks for html report on all positions.\n"
+					"       'selfplay' runs 1000 selfplay games.\n"
+					"       'playability' output info for computing playability values.\n"
+					"       'enumerate' lists all racks.\n"
+					"       'staticleaves' output static leave values of racks in 'racks' file.\n"
+					"       'randomracks' spit out random racks (forever?).\n"
+					"       'leavecalc' spit out roughish values of leaves in 'leaves' file.\n"
+					"       'anagram' anagrams letters supplied in --letters.\n"
+					"       'cputopology' dumps detected CPU topology and thread pool sizing.\n"
+					"       'sim' checks the simulator's accumulators.\n"
+					"--position=game.gcg; this option can be repeated to specify positions\n"
+					"                     to test.\n"
+					"--lexicon=; sets the lexicon (default 'nwl23').\n"
+					"--alphabet=; sets the alphabet (default 'english').\n"
+					"--seed=integer; seed the rng for reproducible sessions.\n"
+					"--report; generate reports for selfplay games (default false).\n"
+					"--letters; letters to anagram.\n"
+					"--build; when mode is anagram, do not require that all letters be used.\n"
+					"--quiet; during selfplay, print only the summary (default false).\n"
+					"--repetitions=integer; the number of games for selfplay (default 1000).\n"
+					"--threads=integer; simulation worker threads for the computer players.\n"
+					"--qos=efficient|balanced|performance; simulation thread priority. Also sets\n"
+					"      the thread count this machine advises at that priority, unless\n"
+					"      --threads says otherwise.\n";
 
 void TestHarness::executeFromArguments()
 {
@@ -140,6 +190,8 @@ void TestHarness::executeFromArguments()
 	QString mode;
 	QString computer;
 	QString computer2;
+	QString config;
+	QString config2;
 	QString seedString;
 	QString repString;
 	QString threadString;
@@ -153,6 +205,8 @@ void TestHarness::executeFromArguments()
 
 	opts.addOption('c', "computer", &computer);
 	opts.addOption('d', "computer2", &computer2);
+	opts.addOption('g', "config", &config);
+	opts.addOption('G', "config2", &config2);
 	opts.addOption('a', "alphabet", &m_alphabet);
 	opts.addOption('l', "lexicon", &m_lexicon);
 	opts.addOption('m', "mode", &mode);
@@ -194,13 +248,15 @@ void TestHarness::executeFromArguments()
 
 
 	m_computerPlayerToTest = checkPlayerName(computer);
-	m_computerPlayer2ToTest = checkPlayerName(computer2);
+	// Its own instance, so the two players can be configured differently.
+	m_computerPlayer2ToTest = checkPlayerName(computer2)->clone();
 
 	startUp();
 
 	applyThreadSettings(m_computerPlayerToTest, threadString, qosString);
-	if (m_computerPlayer2ToTest != m_computerPlayerToTest)
-		applyThreadSettings(m_computerPlayer2ToTest, threadString, qosString);
+	applyThreadSettings(m_computerPlayer2ToTest, threadString, qosString);
+	applyPlayerConfig(m_computerPlayerToTest, config, "player A");
+	applyPlayerConfig(m_computerPlayer2ToTest, config2, "player B");
 
 	// Apply the seed before dispatching to any mode so that every lever --
 	// not just selfplay -- produces reproducible results. Tile drawing (used

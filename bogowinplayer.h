@@ -19,6 +19,8 @@
 #ifndef QUACKLE_BOGOWINPLAYER_H
 #define QUACKLE_BOGOWINPLAYER_H
 
+#include <algorithm>
+
 #include "computerplayer.h"
 #include "endgame.h"
 
@@ -69,6 +71,9 @@ inline int SmartBogowin::minIterations() const
 	if (currentPosition().nestedness() > 0)
 		return m_nestedMinIterationsPerSecond * m_parameters.secondsPerTurn;
 
+	if (m_parameters.minIterations >= 0)
+		return m_parameters.minIterations;
+
 	return m_minIterationsPerSecond * m_parameters.secondsPerTurn;
 }
 
@@ -77,7 +82,10 @@ inline int SmartBogowin::maxIterations() const
 	if (currentPosition().nestedness() > 0)
 		return m_nestedMaxIterationsPerSecond * m_parameters.secondsPerTurn;
 
-	return m_maxIterationsPerSecond * m_parameters.secondsPerTurn;
+	if (m_parameters.maxIterations >= 0)
+		return std::max(m_parameters.maxIterations, minIterations());
+
+	return std::max(m_maxIterationsPerSecond * m_parameters.secondsPerTurn, minIterations());
 }
 
 }

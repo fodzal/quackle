@@ -35,6 +35,16 @@ struct ComputerParameters
 
 	// when simming, use likely rack leaves for opponent based on their previous play
 	bool inferring;
+
+	// Overrides of a simming player's own defaults; a negative value keeps the default.
+	int minIterations = -1;
+	int maxIterations = -1;
+	int additionalCandidates = -1;
+	int plies = -1;
+	double prunePoints = -1;
+
+	// When false, only the iteration budgets bound the search, so its depth no longer depends on machine speed.
+	bool timeLimit = true;
 };
 
 class ComputerDispatch

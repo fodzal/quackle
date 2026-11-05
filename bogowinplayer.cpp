@@ -134,13 +134,14 @@ MoveList SmartBogowin::moves(int nmoves)
 	UVcout << "SmartBogowin generating move from position:" << endl;
 	UVcout << currentPosition() << endl;
 
-	const int zerothPrune = 33;
-	int plies = 2;
+	const double zerothPrune = m_parameters.prunePoints >= 0 ? m_parameters.prunePoints : 33;
+	int plies = m_parameters.plies >= 0 ? m_parameters.plies : 2;
 
 	if (currentPosition().bag().size() <= QUACKLE_PARAMETERS->rackSize() * 2)
 		plies = -1;
 
-	const int initialCandidates = m_additionalInitialCandidates + nmoves;
+	const int initialCandidates
+		= (m_parameters.additionalCandidates >= 0 ? m_parameters.additionalCandidates : m_additionalInitialCandidates) + nmoves;
 
 	currentPosition().kibitz(initialCandidates);
 
@@ -210,7 +211,7 @@ MoveList SmartBogowin::moves(int nmoves)
 			simmedMoves.push_back(move);
 		}
 
-		if (stopwatch.exceeded(m_parameters.secondsPerTurn))
+		if (m_parameters.timeLimit && stopwatch.exceeded(m_parameters.secondsPerTurn))
 		{
 			// UVcout << "Bogowinplayer stopwatch exceeded its limit " << m_parameters.secondsPerTurn << ". Returning early." << endl;
 			goto sort_and_return;

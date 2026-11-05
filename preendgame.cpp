@@ -203,7 +203,7 @@ MoveList Preendgame::moves(int nmoves)
 						static_cast<double>(stopwatch.elapsed()) / static_cast<double>(timeLimit))));
 		}
 
-		if (stopwatch.exceeded(timeLimit))
+		if (m_parameters.timeLimit && stopwatch.exceeded(timeLimit))
 			break;
 
 		if (shouldAbort())
