@@ -28,6 +28,7 @@
 #include <datamanager.h>
 #include <endgameplayer.h>
 #include <endgamesolver.h>
+#include <inferrer.h>
 #include <game.h>
 #include <gameparameters.h>
 #include <lexiconparameters.h>
@@ -128,6 +129,10 @@ static void applyPlayerConfig(ComputerPlayer *player, const QString &config, con
 			parameters.commonRandomNumbers = value != 0;
 		else if (key == "endgame")
 			parameters.endgameGenerations = (int)value;
+		else if (key == "infer")
+			parameters.inferenceSamples = (int)value;
+		else if (key == "inferbeta")
+			parameters.inferenceBeta = value;
 		else
 		{
 			UVcout << "Unknown config key " << QuackleIO::Util::qstringToString(key) << endl;
@@ -139,7 +144,8 @@ static void applyPlayerConfig(ComputerPlayer *player, const QString &config, con
 	UVcout << label << " " << player->name() << ": seconds " << parameters.secondsPerTurn << ", iterations " << parameters.minIterations
 		   << ", maxiterations " << parameters.maxIterations << ", candidates " << parameters.additionalCandidates << ", plies "
 		   << parameters.plies << ", prune " << parameters.prunePoints << ", timelimit " << parameters.timeLimit << ", crn "
-		   << parameters.commonRandomNumbers << ", endgame " << parameters.endgameGenerations << endl;
+		   << parameters.commonRandomNumbers << ", endgame " << parameters.endgameGenerations << ", infer " << parameters.inferenceSamples
+		   << ", inferbeta " << parameters.inferenceBeta << endl;
 }
 
 TestHarness::TestHarness()
@@ -161,7 +167,8 @@ const char *usage = "Optional arguments:\n"
 					"         seconds, iterations, maxiterations, candidates, plies, prune,\n"
 					"         timelimit (0 = bounded by iterations only), crn (0 = independent\n"
 					"         draws per candidate), endgame (solver budget in move generations,\n"
-					"         0 = playout heuristic). Negative = default.\n"
+					"         0 = playout heuristic), infer (racks sampled to infer the\n"
+					"         opponent's leave, 0 = off), inferbeta. Negative = default.\n"
 					"--config2=key=value,...; the same for the second selfplay player.\n"
 					"--mode=\n"
 					"       'positions' (default) runs computer player all positions.\n"
@@ -184,6 +191,9 @@ const char *usage = "Optional arguments:\n"
 					"                  and counts, for the player on turn, wins by tiles unseen\n"
 					"                  and lead; test/wintable/wintable.py fits these into a\n"
 					"                  bogowin table.\n"
+					"       'inference' plays --repetitions Static Player games and measures, after\n"
+					"                   every move, what inference learns about the mover's leave\n"
+					"                   (settings from --config infer=, inferbeta=).\n"
 					"       'bestmove' plays --repetitions Static Player games and checks, at every\n"
 					"                  position, the best move alone against the full move list.\n"
 					"       'endgame' plays --repetitions Static Player games to an empty bag and\n"
@@ -319,6 +329,8 @@ void TestHarness::executeFromArguments()
 		endgame(reps);
 	else if (mode == "bestmove")
 		bestMove(reps);
+	else if (mode == "inference")
+		inference(reps);
 	else if (mode == "worddump")
 		wordDump();
 	else if (mode == "bingos")
@@ -1455,6 +1467,86 @@ void TestHarness::bestMove(unsigned int games)
 	}
 
 	UVcout << "BESTMOVE SUMMARY games " << games << ", positions " << positions << ", mismatches " << mismatches << endl;
+}
+
+void TestHarness::inference(unsigned int games)
+{
+	ComputerPlayer *staticPlayer = checkPlayerName("Static Player");
+	const ComputerParameters parameters = m_computerPlayerToTest ? m_computerPlayerToTest->parameters() : ComputerParameters();
+	const int samples = parameters.inferenceSamples > 0 ? parameters.inferenceSamples : 1000;
+	const double beta = parameters.inferenceBeta;
+
+	int positions = 0;
+	int tiles = 0;
+	double bits = 0;
+	double trueMassPosterior = 0;
+	double trueMassPrior = 0;
+
+	// Expected count of each letter in the leave, as a fraction of the leave.
+	auto marginals = [](const WeightedRacks &leaves) {
+		map<Letter, double> share;
+		double total = 0;
+		for (const auto &leave : leaves)
+		{
+			total += leave.second;
+			for (const Letter letter : leave.first.tiles())
+				share[letter] += leave.second / leave.first.tiles().length();
+		}
+		for (auto &entry : share)
+			entry.second /= total;
+		return share;
+	};
+	auto mass = [](const WeightedRacks &leaves, const Rack &rack) {
+		double total = 0;
+		double match = 0;
+		for (const auto &leave : leaves)
+		{
+			total += leave.second;
+			if (String::alphabetize(leave.first.tiles()) == String::alphabetize(rack.tiles()))
+				match += leave.second;
+		}
+		return total > 0 ? match / total : 0;
+	};
+
+	for (unsigned int g = 0; g < games; ++g)
+	{
+		Quackle::PlayerList players;
+		players.push_back(Quackle::Player(MARK_UV("A"), Quackle::Player::ComputerPlayerType, 0));
+		players.push_back(Quackle::Player(MARK_UV("B"), Quackle::Player::ComputerPlayerType, 1));
+		Quackle::Game game;
+		game.setPlayers(players);
+		game.addPosition();
+		for (int moves = 0; moves < 1000 && !game.currentPosition().gameOver(); ++moves)
+		{
+			const Rack moverRack = game.currentPosition().currentPlayer().rack();
+			game.haveComputerPlay(staticPlayer);
+			const GamePosition &after = game.currentPosition();
+			if (after.gameOver() || after.bag().empty())
+				continue;
+
+			const WeightedRacks posterior = Inferrer::oppoLeaves(after, samples, beta);
+			if (posterior.empty())
+				continue;
+			const WeightedRacks prior = Inferrer::oppoLeaves(after, samples, 0);
+			const Rack leave = moverRack - after.previousMove();
+
+			map<Letter, double> posteriorShare = marginals(posterior);
+			map<Letter, double> priorShare = marginals(prior);
+			for (const Letter letter : leave.tiles())
+			{
+				bits += log2(std::max(1e-6, posteriorShare[letter]) / std::max(1e-6, priorShare[letter]));
+				++tiles;
+			}
+			trueMassPosterior += mass(posterior, leave);
+			trueMassPrior += mass(prior, leave);
+			++positions;
+		}
+	}
+
+	const double n = positions ? positions : 1;
+	UVcout << "INFERENCE SUMMARY games " << games << ", samples " << samples << ", beta " << beta << ", positions " << positions
+		   << ", bits per leave tile " << (tiles ? bits / tiles : 0) << ", mass on the true leave " << trueMassPosterior / n << " (prior "
+		   << trueMassPrior / n << ")" << endl;
 }
 
 static void dumpGaddag(const GaddagNode *node, const LetterString &prefix)

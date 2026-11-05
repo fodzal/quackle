@@ -362,6 +362,10 @@ public:
 	void setCommittedMove(const Move &move);
 	const Move &committedMove() const;
 
+	// The move committed from the position before this one, as Game::addPosition records it.
+	const Move &previousMove() const;
+	void setPreviousMove(const Move &move);
+
 	void setTileBonus(const UVString &player, const LetterString &allegedTiles, int allegedTileBonus);
 
 	// saves the current candidate as the committedMove.
@@ -428,6 +432,7 @@ protected:
 	// For instance, the end-of-game bonus move is stored in both fields.
 	Move m_moveMade;
 	Move m_committedMove;
+	Move m_previousMove = Move::createNonmove();
 
 	// I feel safer with this not being public
 	void setTurnNumber(int turnNumber);
@@ -570,6 +575,16 @@ inline void GamePosition::setCommittedMove(const Move &move)
 inline const Move &GamePosition::committedMove() const
 {
 	return m_committedMove;
+}
+
+inline const Move &GamePosition::previousMove() const
+{
+	return m_previousMove;
+}
+
+inline void GamePosition::setPreviousMove(const Move &move)
+{
+	m_previousMove = move;
 }
 
 inline void GamePosition::setTurnNumber(int turnNumber)

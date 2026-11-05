@@ -30,6 +30,7 @@
 
 #include "alphabetparameters.h"
 #include "game.h"
+#include "inferrer.h"
 
 using std::vector;
 
@@ -231,6 +232,8 @@ class SimmedMoveConstants
 public:
 	Game game;
 	Rack partialOppoRack;
+	WeightedRacks oppoLeaves;
+	double oppoLeavesWeight = 0;
 	int startPlayerId;
 	int playerCount;
 	int decimalTurns;
@@ -375,6 +378,9 @@ public:
 	void setPartialOppoRack(const Rack &rack);
 	const Rack &partialOppoRack() const;
 
+	// When not empty, each playahead takes its partial oppo rack from these, in proportion to the weights.
+	void setOppoLeaves(const WeightedRacks &leaves);
+
 	// Set oppo's racks to something random, including
 	// tiles specified by setPartialOppoRack above.
 	// Possibly inference-aided randomness.
@@ -435,6 +441,7 @@ protected:
 	UVString m_xmlIndent;
 
 	Rack m_partialOppoRack;
+	WeightedRacks m_oppoLeaves;
 
 	Game m_originalGame;
 	ComputerDispatch *m_dispatch;

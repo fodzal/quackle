@@ -22,6 +22,8 @@
 
     { "name": "bestmove",              "mode": "bestmove", "args": ["--repetitions=3"], "seed": 21 },
 
+    { "name": "inference",             "mode": "inference", "args": ["--config=infer=200", "--repetitions=2"], "seed": 17 },
+
     { "name": "endgame-solver",        "mode": "endgame", "args": ["--config=endgame=2000", "--repetitions=4"], "seed": 13 },
 
     { "name": "playability",           "mode": "playability", "args": ["--repetitions=2"], "seed": 5 },

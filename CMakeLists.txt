@@ -28,6 +28,7 @@ set(LIBQUACKLE_SOURCES
 	game.cpp
 	gameparameters.cpp
 	generator.cpp
+	inferrer.cpp
 	lexiconparameters.cpp
 	move.cpp
 	player.cpp
@@ -62,6 +63,7 @@ set(LIBQUACKLE_HEADERS
 	game.h
 	gameparameters.h
 	generator.h
+	inferrer.h
 	lexiconparameters.h
 	move.h
 	player.h

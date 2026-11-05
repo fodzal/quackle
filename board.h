@@ -60,6 +60,9 @@ public:
 
 	void makeMove(const Move &move);
 
+	// Takes back the tiles move placed; cross-checks are left stale.
+	void unmakeMove(const Move &move);
+
 	// Returns all words formed when play is made.
 	// If move.tiles() is only of length 1, specified move is not in the
 	// returned list; otherwise it is.

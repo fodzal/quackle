@@ -573,6 +573,33 @@ void Board::makeMove(const Move &move)
 	}
 }
 
+void Board::unmakeMove(const Move &move)
+{
+	if (move.action != Move::Place)
+		return;
+
+	int row = move.startrow;
+	int col = move.startcol;
+	for (const Letter tile : move.tiles())
+	{
+		if (tile != QUACKLE_PLAYED_THRU_MARK)
+		{
+			m_letters[row][col] = QUACKLE_NULL_MARK;
+			m_isBlank[row][col] = false;
+		}
+
+		if (move.horizontal)
+			col++;
+		else
+			row++;
+	}
+
+	m_empty = true;
+	for (row = 0; row < m_height && m_empty; ++row)
+		for (col = 0; col < m_width && m_empty; ++col)
+			m_empty = m_letters[row][col] == QUACKLE_NULL_MARK;
+}
+
 UVString Board::toString() const
 {
 	UVOStringStream ss;

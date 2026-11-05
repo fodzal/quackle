@@ -83,7 +83,7 @@ InferringPlayer::InferringPlayer()
 	m_name = MARK_UV("Inferring Player");
 	m_id = 2012;
 	m_parameters.secondsPerTurn = 20;
-	m_parameters.inferring = true;
+	m_parameters.inferenceSamples = 1000;
 }
 
 InferringPlayer::~InferringPlayer() {}

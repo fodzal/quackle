@@ -53,7 +53,6 @@ protected:
 	int m_nestedMinIterationsPerSecond;
 	int m_nestedMaxIterationsPerSecond;
 
-	bool m_inferring;
 };
 
 inline bool SmartBogowin::isSlow() const

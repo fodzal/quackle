@@ -51,6 +51,11 @@ struct ComputerParameters
 
 	// Budget for the endgame solver, whose move is played only if proven; 0 leaves Endgame's heuristic alone.
 	int endgameGenerations = 0;
+
+	// Racks sampled to infer the opponent's leave from their last move; 0 turns inference off.
+	int inferenceSamples = 0;
+	// Likelihood of a move falls by a factor e for every 1/inferenceBeta points of equity it gives up.
+	double inferenceBeta = 0.5;
 };
 
 class ComputerDispatch

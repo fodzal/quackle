@@ -67,6 +67,7 @@ void Game::setPlayers(const PlayerList &list)
 void Game::addPosition()
 {
 	addClonePosition();
+	m_positions.lastPosition().setPreviousMove(m_positions.lastPosition().committedMove());
 	m_positions.lastPosition().incrementTurn(&history());
 
 	m_positions.setCurrentLocation(m_positions.lastLocation());
@@ -202,6 +203,7 @@ GamePosition::GamePosition(const GamePosition &position)
 	, m_moves(position.m_moves)
 	, m_moveMade(position.m_moveMade)
 	, m_committedMove(position.m_committedMove)
+	, m_previousMove(position.m_previousMove)
 	, m_turnNumber(position.m_turnNumber)
 	, m_nestedness(position.m_nestedness)
 	, m_scorelessTurnsInARow(position.m_scorelessTurnsInARow)
@@ -232,6 +234,7 @@ const GamePosition &GamePosition::operator=(const GamePosition &position)
 	m_moves = position.m_moves;
 	m_moveMade = position.m_moveMade;
 	m_committedMove = position.m_committedMove;
+	m_previousMove = position.m_previousMove;
 	m_turnNumber = position.m_turnNumber;
 	m_nestedness = position.m_nestedness;
 	m_scorelessTurnsInARow = position.m_scorelessTurnsInARow;

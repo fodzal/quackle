@@ -438,6 +438,9 @@ void Simulator::simulate(int plies, int iterations)
 	SimmedMoveConstants constants;
 	constants.game = m_originalGame;
 	constants.partialOppoRack = m_partialOppoRack;
+	constants.oppoLeaves = m_oppoLeaves;
+	for (const auto &leave : m_oppoLeaves)
+		constants.oppoLeavesWeight += leave.second;
 	constants.startPlayerId = m_originalGame.currentPosition().currentPlayer().id();
 	constants.playerCount = int(m_originalGame.currentPosition().players().size());
 	// level one's first move is the zeroth ply (the candidate)
@@ -625,7 +628,19 @@ void Simulator::simulateOnePosition(SimmedMoveMessage &message, const SimmedMove
 	seed_seq seed = { (uint32_t)message.seed, (uint32_t)(message.seed >> 32) };
 	QUACKLE_DATAMANAGER->seedRandomNumbers(seed);
 
-	randomizeOppoRacks(game.currentPosition(), constants.partialOppoRack);
+	const Rack *partialOppoRack = &constants.partialOppoRack;
+	if (constants.oppoLeavesWeight > 0)
+	{
+		double pick = constants.oppoLeavesWeight * QUACKLE_DATAMANAGER->randomInteger(0, (1 << 30) - 1) / (double)(1 << 30);
+		for (const auto &leave : constants.oppoLeaves)
+		{
+			partialOppoRack = &leave.first;
+			pick -= leave.second;
+			if (pick < 0)
+				break;
+		}
+	}
+	randomizeOppoRacks(game.currentPosition(), *partialOppoRack);
 	randomizeDrawingOrder(game.currentPosition());
 
 	double residual = 0;
@@ -843,6 +858,11 @@ void Simulator::randomizeOppoRacks(GamePosition &position, const Rack &partialOp
 void Simulator::setPartialOppoRack(const Rack &rack)
 {
 	m_partialOppoRack = rack;
+}
+
+void Simulator::setOppoLeaves(const WeightedRacks &leaves)
+{
+	m_oppoLeaves = leaves;
 }
 
 void Simulator::randomizeDrawingOrder()
