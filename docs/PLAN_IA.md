@@ -28,6 +28,7 @@ précédente ; les fusionner dans l'ordre). `docs/ai-plan` est à part, sur `mas
 | 7 | `fix/strategy-loading` | B5, B6 (écart interpolé), B7, ROADMAP C.1 | 26/26, goldens inchangés |
 | 8 | `fix/bogowin-symmetry` | B3 : référence et challenger comparés au même nombre de tirages | 26/26 ; smoke test ASan Championship |
 | 9 | `test/bench` | 0.5 — `--mode bench` ; temps de l'arène par phase (milieu, preendgame, finale) | 26/26 ; golden arène ré-enregistré (format de ligne seulement) |
+| 10 | `perf/leaves` | V2 — superleaves en table de hachage ; cache par chevalet des valeurs de leave | 26/26, goldens inchangés ; playaheads ×1,29–1,33 |
 
 Non traités pour l'instant : B9 (chrono vérifié entre candidats seulement), branches
 existantes `fix/endgame-passout-spread`, `fix/report-considered-move-endgame`,
@@ -81,6 +82,16 @@ mesurable en une nuit ; le corpus de positions (0.6) reste nécessaire pour les 
 - Après la référence (56,5 %) : **avancer `tools/win-table` (5.3)** — une table de victoire
   apprise sur `ods5` est peu coûteuse (self-play Static) et peut expliquer une partie du
   faible gain de la simulation en français. À tester dans l'arène dès la phase 2 terminée.
+- **0.6 (corpus) reporté à la phase 4** : étiqueter une finale (« passer est le seul gain »)
+  exige un solveur exact, qui est justement l'objet de la phase 4. La phase 2 passe avant.
+- **Profilage (phase 2.1)**, paire d'arène Championship 20/50 en `ods5`, échantillonneur
+  maison (pas de profileur VS dans les BuildTools) : 85 % du temps dans `staticBestMove` des
+  playouts ; `leaveValue` + `Rack - Move` ≈ 24 % (`std::map` de ~10⁶ superleaves) ; générateur
+  (gordongen/goon) ≈ 50 % ; copies de `GamePosition` < 5 %. V1 (`perf/no-copies`) descend donc
+  en fin de phase 2 ; V2 (`perf/leaves`) passe en premier, puis le générateur (V3).
+  Après `perf/leaves` : équité 14 %, générateur ≈ 56 % en propre.
+- Le bench est bruité sur ce portable (cœurs P/LPE, chauffe) : comparer deux binaires en
+  alternance, épinglés sur un cœur, meilleur de N passes.
 - Build Windows : voir `ARCHITECTURE.md` §10 (suivi des en-têtes cassé sous MSVC en
   français sans `chcp 65001`).
 
