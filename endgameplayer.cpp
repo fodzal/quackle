@@ -19,6 +19,7 @@
 #include <iostream>
 
 #include "endgameplayer.h"
+#include "endgamesolver.h"
 
 // #define DEBUG_COMPUTERPLAYER
 
@@ -49,6 +50,24 @@ MoveList EndgamePlayer::moves(int nmoves)
 		UVcout << "EndgamePlayer returns " << m_simulator.currentPosition().moves() << endl;
 #endif
 		return m_simulator.currentPosition().moves();
+	}
+
+	if (nmoves == 1 && m_parameters.endgameGenerations > 0 && currentPosition().nestedness() == 0
+		&& currentPosition().players().size() == 2)
+	{
+		EndgameSolver solver;
+		const EndgameSolver::Result result
+			= solver.solve(currentPosition(), m_parameters.endgameGenerations, m_parameters.timeLimit ? m_parameters.secondsPerTurn : 0);
+		if (result.exact)
+		{
+			Move solution = result.move;
+			const int spread = currentPosition().spread(currentPosition().currentPlayer().id()) + result.value;
+			solution.equity = result.value;
+			solution.win = spread > 0 ? 1 : (spread == 0 ? 0.5 : 0);
+			MoveList ret;
+			ret.push_back(solution);
+			return ret;
+		}
 	}
 
 	m_endgame.setPosition(currentPosition());

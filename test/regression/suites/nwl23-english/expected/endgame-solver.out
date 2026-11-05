@@ -1,0 +1,10 @@
+ENDGAME game 0 ply 0 tiles 7+1 solver 11J UREAS (score = 30, equity = 16.78, win% = 0) value 18 exact depth 3 generations 458 heuristic 11J UREAS (score = 30, equity = 18, win% = 0)
+ENDGAME game 0 ply 1 tiles 1+2 solver M10 ...E (score = 8, equity = 12, win% = 0) value 12 exact depth 2 generations 2 heuristic M10 ...E (score = 8, equity = 12, win% = 1)
+ENDGAME game 1 ply 0 tiles 7+1 solver 14B STEER (score = 24, equity = 10.78, win% = 0) value 17 exact depth 3 generations 439 heuristic 14B STEER (score = 24, equity = 17, win% = 0)
+ENDGAME game 1 ply 1 tiles 1+1 solver H12 U.. (score = 4, equity = 6, win% = 0) value 6 exact depth 2 generations 2 heuristic H12 U.. (score = 4, equity = 6, win% = 1)
+ENDGAME game 2 ply 0 tiles 7+1 solver 8L K..D (score = 53, equity = 24.12, win% = 0) value 28 exact depth 5 generations 154 heuristic 8L K..D (score = 53, equity = 28, win% = 1)
+ENDGAME game 2 ply 1 tiles 1+5 solver 15L .U (score = 9, equity = 25, win% = 0) value 25 exact depth 4 generations 7 heuristic 15L .U (score = 9, equity = 25, win% = 0)
+ENDGAME game 3 ply 0 tiles 7+4 solver D1 MAGE (score = 26, equity = 10.17, win% = 0) value 7 exact depth 5 generations 1062 heuristic D1 MAGE (score = 26, equity = 7, win% = 0)
+ENDGAME game 3 ply 1 tiles 4+3 solver 2H .UBES (score = 13, equity = 19, win% = 0) value 19 exact depth 4 generations 172 heuristic 2H .UBES (score = 13, equity = 19, win% = 1)
+ENDGAME SUMMARY games 4, positions 8, proven 8, solver differs 0, judged 0, total gain 0, heuristic better 0, line mismatches 0
+ENDGAME TIME secondsSolver <N> secondsHeuristic <N>

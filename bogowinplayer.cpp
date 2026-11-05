@@ -93,6 +93,7 @@ MoveList SmartBogowin::moves(int nmoves)
 	{
 		signalFractionDone(0);
 		EndgamePlayer endgame;
+		endgame.setParameters(m_parameters);
 		endgame.setPosition(currentPosition());
 		return endgame.moves(nmoves);
 	}

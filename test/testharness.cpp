@@ -27,6 +27,7 @@
 #include <resolvent.h>
 #include <datamanager.h>
 #include <endgameplayer.h>
+#include <endgamesolver.h>
 #include <game.h>
 #include <gameparameters.h>
 #include <lexiconparameters.h>
@@ -47,8 +48,7 @@
 using namespace std;
 using namespace Quackle;
 
-static Quackle::ThreadQoS
-checkThreadQoS(const QString& qos)
+static Quackle::ThreadQoS checkThreadQoS(const QString &qos)
 {
 	if (qos == "efficient")
 		return Quackle::ThreadQoS::EnergyEfficient;
@@ -63,8 +63,7 @@ checkThreadQoS(const QString& qos)
 
 // A player that delegates its move hands these down, so setting them on the
 // selected player reaches whichever player actually does the simming.
-static void
-applyThreadSettings(ComputerPlayer* player, const QString& threadString, const QString& qosString)
+static void applyThreadSettings(ComputerPlayer *player, const QString &threadString, const QString &qosString)
 {
 	if (!player || (threadString.isNull() && qosString.isNull()))
 		return;
@@ -75,8 +74,7 @@ applyThreadSettings(ComputerPlayer* player, const QString& threadString, const Q
 	player->setThreadCount(count, qos);
 }
 
-static ComputerPlayer*
-checkPlayerName(const QString& computer)
+static ComputerPlayer *checkPlayerName(const QString &computer)
 {
 	bool playerFound = false;
 	const Quackle::Player &player = QUACKLE_COMPUTER_PLAYERS.playerForName(QuackleIO::Util::qstringToString(computer), playerFound);
@@ -125,6 +123,8 @@ static void applyPlayerConfig(ComputerPlayer *player, const QString &config, con
 			parameters.timeLimit = value != 0;
 		else if (key == "crn")
 			parameters.commonRandomNumbers = value != 0;
+		else if (key == "endgame")
+			parameters.endgameGenerations = (int)value;
 		else
 		{
 			UVcout << "Unknown config key " << QuackleIO::Util::qstringToString(key) << endl;
@@ -136,7 +136,7 @@ static void applyPlayerConfig(ComputerPlayer *player, const QString &config, con
 	UVcout << label << " " << player->name() << ": seconds " << parameters.secondsPerTurn << ", iterations " << parameters.minIterations
 		   << ", maxiterations " << parameters.maxIterations << ", candidates " << parameters.additionalCandidates << ", plies "
 		   << parameters.plies << ", prune " << parameters.prunePoints << ", timelimit " << parameters.timeLimit << ", crn "
-		   << parameters.commonRandomNumbers << endl;
+		   << parameters.commonRandomNumbers << ", endgame " << parameters.endgameGenerations << endl;
 }
 
 TestHarness::TestHarness()
@@ -157,7 +157,8 @@ const char *usage = "Optional arguments:\n"
 					"--config=key=value,...; overrides the first player's search settings:\n"
 					"         seconds, iterations, maxiterations, candidates, plies, prune,\n"
 					"         timelimit (0 = bounded by iterations only), crn (0 = independent\n"
-					"         draws per candidate). Negative = default.\n"
+					"         draws per candidate), endgame (solver budget in move generations,\n"
+					"         0 = playout heuristic). Negative = default.\n"
 					"--config2=key=value,...; the same for the second selfplay player.\n"
 					"--mode=\n"
 					"       'positions' (default) runs computer player all positions.\n"
@@ -180,6 +181,9 @@ const char *usage = "Optional arguments:\n"
 					"                  and counts, for the player on turn, wins by tiles unseen\n"
 					"                  and lead; test/wintable/wintable.py fits these into a\n"
 					"                  bogowin table.\n"
+					"       'endgame' plays --repetitions Static Player games to an empty bag and\n"
+					"                 compares the endgame solver (budget from --config endgame=)\n"
+					"                 with the playout heuristic, both judged by a deeper solve.\n"
 					"--position=game.gcg; this option can be repeated to specify positions\n"
 					"                     to test.\n"
 					"--lexicon=; sets the lexicon (default 'nwl23').\n"
@@ -254,10 +258,9 @@ void TestHarness::executeFromArguments()
 	if (m_alphabet.isNull())
 		m_alphabet = "english";
 	if (!seedString.isNull())
-	        seed = seedString.toUInt();
+		seed = seedString.toUInt();
 	if (!repString.isNull())
-	        reps = repString.toUInt();
-
+		reps = repString.toUInt();
 
 	m_computerPlayerToTest = checkPlayerName(computer);
 	// Its own instance, so the two players can be configured differently.
@@ -306,6 +309,8 @@ void TestHarness::executeFromArguments()
 		bench();
 	else if (mode == "wintable")
 		winTable(reps);
+	else if (mode == "endgame")
+		endgame(reps);
 	else if (mode == "worddump")
 		wordDump();
 	else if (mode == "bingos")
@@ -323,7 +328,8 @@ void TestHarness::startUp()
 	m_dataManager.setBackupLexicon("nwl23");
 	m_dataManager.setAppDataDirectory("../data");
 
-	QString alphabetFile = QuackleIO::Util::stdStringToQString(Quackle::AlphabetParameters::findAlphabetFile(QuackleIO::Util::qstringToStdString(m_alphabet)));
+	QString alphabetFile = QuackleIO::Util::stdStringToQString(
+		Quackle::AlphabetParameters::findAlphabetFile(QuackleIO::Util::qstringToStdString(m_alphabet)));
 	QuackleIO::FlexibleAlphabetParameters *flexure = new QuackleIO::FlexibleAlphabetParameters;
 	if (flexure->load(alphabetFile))
 	{
@@ -337,10 +343,12 @@ void TestHarness::startUp()
 
 	m_dataManager.setBoardParameters(new ScrabbleBoard());
 
-	m_dataManager.lexiconParameters()->loadDawg(Quackle::LexiconParameters::findDictionaryFile(QuackleIO::Util::qstringToStdString(m_lexicon + ".dawg")));
+	m_dataManager.lexiconParameters()->loadDawg(
+		Quackle::LexiconParameters::findDictionaryFile(QuackleIO::Util::qstringToStdString(m_lexicon + ".dawg")));
 	UVcout << ".";
 
-   	m_dataManager.lexiconParameters()->loadGaddag(Quackle::LexiconParameters::findDictionaryFile(QuackleIO::Util::qstringToStdString(m_lexicon + ".gaddag")));
+	m_dataManager.lexiconParameters()->loadGaddag(
+		Quackle::LexiconParameters::findDictionaryFile(QuackleIO::Util::qstringToStdString(m_lexicon + ".gaddag")));
 	UVcout << ".";
 
 	if (m_alphabet == "english")
@@ -451,7 +459,6 @@ void TestHarness::leaveCalc(const QString &filename)
 	}
 
 	file.close();
-
 }
 
 void TestHarness::randomRacks()
@@ -513,8 +520,8 @@ void TestHarness::staticLeaves(const QString &filename)
 		Rack rack(QuackleIO::Util::encode(line));
 		game.currentPosition().setCurrentPlayerRack(rack);
 		Move move = game.currentPosition().staticBestMove();
-		//Move scoredExch = game.currentPosition().scoreMove(exchZero);
-		//UVcout << rack << " " << scoredExch << endl;
+		// Move scoredExch = game.currentPosition().scoreMove(exchZero);
+		// UVcout << rack << " " << scoredExch << endl;
 		UVcout << rack << " " << move << endl;
 	}
 
@@ -533,164 +540,177 @@ void TestHarness::enumerateAll()
 
 struct PowerRack
 {
-    PowerRack(ProbableRack &r) : rack(r.rack),
-				 stemProbability(r.probability),
-				 usableTiles(0),
-				 power(0) {}
+	PowerRack(ProbableRack &r)
+		: rack(r.rack), stemProbability(r.probability), usableTiles(0), power(0)
+	{
+	}
 
-    Rack   rack;
-    double stemProbability; /* MSP */
-    int    usableTiles; /* UT */
-    double power; /* MMPR */
+	Rack rack;
+	double stemProbability; /* MSP */
+	int usableTiles; /* UT */
+	double power; /* MMPR */
 };
 
 typedef vector<PowerRack> PowerRackList;
 
-static bool powerSort(const PowerRack& r1,
-		      const PowerRack& r2)
+static bool powerSort(const PowerRack &r1, const PowerRack &r2)
 {
-    return r1.power > r2.power;
+	return r1.power > r2.power;
 }
 
 // Looks for a single letter that acts to pluralize words based on the assumption
 // that it will make a very common last letter in the lexicon.
 static Letter findPluarlizer()
 {
-    // generate all the words in the lexicon
-    Generator gen;
-    int flags = Generator::AnagramRearrange | Generator::AddAnyLetters
-	| Generator::ClearBlanknesses;
-    WordList all = gen.anagramLetters("", flags);
+	// generate all the words in the lexicon
+	Generator gen;
+	int flags = Generator::AnagramRearrange | Generator::AddAnyLetters | Generator::ClearBlanknesses;
+	WordList all = gen.anagramLetters("", flags);
 
-    // count the frequency of occurrence of the final letter
-    const int allLetters = QUACKLE_FIRST_LETTER + QUACKLE_MAXIMUM_ALPHABET_SIZE;
-    int endCounts[allLetters];
-    for (int j = 0; j < allLetters; j++) {
-	endCounts[j] = 0;
-    }
-    for (WordList::iterator it = all.begin(); it != all.end(); ++it) {
-	LetterString word = *it;
-	Letter last = word[word.length() - 1];
- 	endCounts[last]++;
-    }
-
-    // find the most common and 2nd most common final letters
-    int maxEndCnt = 0;
-    int maxEndLetter = QUACKLE_NULL_MARK;
-    int max2EndCnt = 0;
-    int max2EndLetter = QUACKLE_NULL_MARK;
-    for (int j = 0; j < allLetters; j++) {
-	if (endCounts[j] > maxEndCnt) {
-	    max2EndCnt = maxEndCnt;
-	    max2EndLetter = maxEndLetter;
-	    maxEndCnt = endCounts[j];
-	    maxEndLetter = j;
-	} else if (endCounts[j] > max2EndCnt) {
-	    max2EndCnt = endCounts[j];
-	    max2EndLetter = j;
+	// count the frequency of occurrence of the final letter
+	const int allLetters = QUACKLE_FIRST_LETTER + QUACKLE_MAXIMUM_ALPHABET_SIZE;
+	int endCounts[allLetters];
+	for (int j = 0; j < allLetters; j++)
+	{
+		endCounts[j] = 0;
 	}
-    }
+	for (WordList::iterator it = all.begin(); it != all.end(); ++it)
+	{
+		LetterString word = *it;
+		Letter last = word[word.length() - 1];
+		endCounts[last]++;
+	}
 
-//     UVcout << QUACKLE_ALPHABET_PARAMETERS->userVisible(maxEndLetter)
-// 	   << " " << endCounts[maxEndLetter] << endl;
-//     UVcout << QUACKLE_ALPHABET_PARAMETERS->userVisible(max2EndLetter)
-// 	   << " " << endCounts[max2EndLetter] << endl;
+	// find the most common and 2nd most common final letters
+	int maxEndCnt = 0;
+	int maxEndLetter = QUACKLE_NULL_MARK;
+	int max2EndCnt = 0;
+	int max2EndLetter = QUACKLE_NULL_MARK;
+	for (int j = 0; j < allLetters; j++)
+	{
+		if (endCounts[j] > maxEndCnt)
+		{
+			max2EndCnt = maxEndCnt;
+			max2EndLetter = maxEndLetter;
+			maxEndCnt = endCounts[j];
+			maxEndLetter = j;
+		}
+		else if (endCounts[j] > max2EndCnt)
+		{
+			max2EndCnt = endCounts[j];
+			max2EndLetter = j;
+		}
+	}
 
-    // We found a pluralizer if it is much more common, otherwise this
-    // language doesn't seem to have one.
-    if (endCounts[maxEndLetter] > 2 * endCounts[max2EndLetter]) {
-	UVcout << QUACKLE_ALPHABET_PARAMETERS->userVisible(maxEndLetter)
-	       << " is the pluralizer" << endl;
-	return maxEndLetter;
-    }
-    return QUACKLE_NULL_MARK;
+	//     UVcout << QUACKLE_ALPHABET_PARAMETERS->userVisible(maxEndLetter)
+	// 	   << " " << endCounts[maxEndLetter] << endl;
+	//     UVcout << QUACKLE_ALPHABET_PARAMETERS->userVisible(max2EndLetter)
+	// 	   << " " << endCounts[max2EndLetter] << endl;
+
+	// We found a pluralizer if it is much more common, otherwise this
+	// language doesn't seem to have one.
+	if (endCounts[maxEndLetter] > 2 * endCounts[max2EndLetter])
+	{
+		UVcout << QUACKLE_ALPHABET_PARAMETERS->userVisible(maxEndLetter) << " is the pluralizer" << endl;
+		return maxEndLetter;
+	}
+	return QUACKLE_NULL_MARK;
 }
 
 void TestHarness::bingos()
 {
-    Letter pluralizer = findPluarlizer();
+	Letter pluralizer = findPluarlizer();
 
-    // enumerate all racks not considering blanks
-    Quackle::Bag B;
-    int blankCnt = 0;
-    while (B.removeLetter(QUACKLE_BLANK_MARK)) {
-	++blankCnt;
-    }
-    Enumerator E(B);
-    ProbableRackList enumRacks;
-    E.enumerate(&enumRacks, 6);
+	// enumerate all racks not considering blanks
+	Quackle::Bag B;
+	int blankCnt = 0;
+	while (B.removeLetter(QUACKLE_BLANK_MARK))
+	{
+		++blankCnt;
+	}
+	Enumerator E(B);
+	ProbableRackList enumRacks;
+	E.enumerate(&enumRacks, 6);
 
-    // convert probable racks to power racks for extra fields
-    PowerRackList racks;
-    for (ProbableRackList::iterator it = enumRacks.begin();
-	 it != enumRacks.end(); ++it) {
-	racks.push_back(PowerRack(*it));
-    }
-
-    // get counts of all non-blank letters
-    Letter start = QUACKLE_ALPHABET_PARAMETERS->firstLetter();
-    Letter end = QUACKLE_ALPHABET_PARAMETERS->lastLetter();
-    char bagCounts[QUACKLE_FIRST_LETTER + QUACKLE_MAXIMUM_ALPHABET_SIZE];
-    B.letterCounts(bagCounts);
-
-    Generator gen;
-    int cnt = 0;
-    for (PowerRackList::iterator it = racks.begin(); it != racks.end(); ++it) {
-	LetterString letters(it->rack.tiles());
-
-	char rackCounts[QUACKLE_FIRST_LETTER + QUACKLE_MAXIMUM_ALPHABET_SIZE];
-	String::counts(letters, rackCounts);
-
-	if (++cnt % 1000 == 0) {
-	    UVcout << "stem: " << QUACKLE_ALPHABET_PARAMETERS->userVisible(letters)
-		   << " (" << cnt << " / " << racks.size() << ")" << endl;
+	// convert probable racks to power racks for extra fields
+	PowerRackList racks;
+	for (ProbableRackList::iterator it = enumRacks.begin(); it != enumRacks.end(); ++it)
+	{
+		racks.push_back(PowerRack(*it));
 	}
 
-	// Count how many tiles combine with rack to make a bingo
-	int usableTiles = 0;
-	for (Letter c = start; c <= end; ++c) {
-	    if (bagCounts[c] <= rackCounts[c]) {
-		continue; // none left in bag to draw
-	    }
-	    int flags = Generator::AnagramRearrange | Generator::SingleMatch;
-	    WordList anagrams = gen.anagramLetters(letters + c, flags);
-	    if (anagrams.size() > 0) {
-		usableTiles += bagCounts[c] - rackCounts[c]; // count all in the bag
-	    }
+	// get counts of all non-blank letters
+	Letter start = QUACKLE_ALPHABET_PARAMETERS->firstLetter();
+	Letter end = QUACKLE_ALPHABET_PARAMETERS->lastLetter();
+	char bagCounts[QUACKLE_FIRST_LETTER + QUACKLE_MAXIMUM_ALPHABET_SIZE];
+	B.letterCounts(bagCounts);
+
+	Generator gen;
+	int cnt = 0;
+	for (PowerRackList::iterator it = racks.begin(); it != racks.end(); ++it)
+	{
+		LetterString letters(it->rack.tiles());
+
+		char rackCounts[QUACKLE_FIRST_LETTER + QUACKLE_MAXIMUM_ALPHABET_SIZE];
+		String::counts(letters, rackCounts);
+
+		if (++cnt % 1000 == 0)
+		{
+			UVcout << "stem: " << QUACKLE_ALPHABET_PARAMETERS->userVisible(letters) << " (" << cnt << " / " << racks.size() << ")" << endl;
+		}
+
+		// Count how many tiles combine with rack to make a bingo
+		int usableTiles = 0;
+		for (Letter c = start; c <= end; ++c)
+		{
+			if (bagCounts[c] <= rackCounts[c])
+			{
+				continue; // none left in bag to draw
+			}
+			int flags = Generator::AnagramRearrange | Generator::SingleMatch;
+			WordList anagrams = gen.anagramLetters(letters + c, flags);
+			if (anagrams.size() > 0)
+			{
+				usableTiles += bagCounts[c] - rackCounts[c]; // count all in the bag
+			}
+		}
+
+		// if we can make anything we can also do so with blanks
+		if (usableTiles > 0)
+		{
+			usableTiles += blankCnt;
+		}
+		it->usableTiles = usableTiles;
+		if (rackCounts[pluralizer])
+		{
+			// Baron: "However, due to the frequent retention of the S in
+			// actual play, its attributed frequency was subsequently increased
+			// artificially 50%".  I generalized 'S' to a pluralizer for
+			// multi-language support.
+			it->stemProbability *= 1.5;
+		}
+		it->power = it->stemProbability * usableTiles;
 	}
 
-	// if we can make anything we can also do so with blanks
-	if (usableTiles > 0) {
-	    usableTiles += blankCnt;
+	sort(racks.begin(), racks.end(), powerSort);
+
+	// Normalize max MSP to 1 (or 1.5 if it contains pluralizer) and MMPR
+	double scale = 1 / racks.begin()->stemProbability;
+	if (racks.begin()->rack.contains(LetterString(1, pluralizer)))
+	{
+		scale *= 1.5;
 	}
-	it->usableTiles = usableTiles;
-	if (rackCounts[pluralizer]) {
-	    // Baron: "However, due to the frequent retention of the S in
-	    // actual play, its attributed frequency was subsequently increased
-	    // artificially 50%".  I generalized 'S' to a pluralizer for
-	    // multi-language support.
-	    it->stemProbability *= 1.5;
+	for (PowerRackList::iterator it = racks.begin(); it != racks.end(); ++it)
+	{
+		it->stemProbability *= scale;
+		it->power *= scale;
 	}
-	it->power = it->stemProbability * usableTiles;
-    }
 
-    sort(racks.begin(), racks.end(), powerSort);
-
-    // Normalize max MSP to 1 (or 1.5 if it contains pluralizer) and MMPR
-    double scale = 1 / racks.begin()->stemProbability;
-    if (racks.begin()->rack.contains(LetterString(1, pluralizer))) {
-	scale *= 1.5;
-    }
-    for (PowerRackList::iterator it = racks.begin(); it != racks.end(); ++it) {
-	it->stemProbability *= scale;
-	it->power *= scale;
-    }
-
-    // dump results
-    for (PowerRackList::iterator it = racks.begin(); it != racks.end(); ++it) {
-	UVcout << it->rack << " " << it->stemProbability << " "
-	       << it->usableTiles << " " << it->power << endl;
-    }
+	// dump results
+	for (PowerRackList::iterator it = racks.begin(); it != racks.end(); ++it)
+	{
+		UVcout << it->rack << " " << it->stemProbability << " " << it->usableTiles << " " << it->power << endl;
+	}
 }
 
 void TestHarness::testPosition(const Quackle::GamePosition &position, Quackle::ComputerPlayer *player)
@@ -725,7 +745,7 @@ void TestHarness::testPosition(const Quackle::GamePosition &position, Quackle::C
 void TestHarness::anagram(const QString &letters, bool build)
 {
 	QuackleIO::DictImplementation dict;
-	Dict::WordList list = dict.query(letters, build? Dict::Querier::NoRequireAllLetters : Dict::Querier::None);
+	Dict::WordList list = dict.query(letters, build ? Dict::Querier::NoRequireAllLetters : Dict::Querier::None);
 
 	for (Dict::WordList::Iterator it = list.begin(); it != list.end(); ++it)
 	{
@@ -911,19 +931,23 @@ TestHarness::SelfPlayResult TestHarness::selfPlayGame(unsigned int gameNumber, b
 	result.moves = i;
 
 	int secondsElapsed = static_cast<int>(time.elapsed() / 1000);
-	if (!m_quiet) {
-		UVcout << "Game " << gameNumber << " played in " << secondsElapsed
-	           << " seconds with " << i << " moves" << endl;
+	if (!m_quiet)
+	{
+		UVcout << "Game " << gameNumber << " played in " << secondsElapsed << " seconds with " << i << " moves" << endl;
 	}
 
-	if (!reports) {
+	if (!reports)
+	{
 		return result;
 	}
 
 	Quackle::StaticPlayer playah;
 	UVString report;
 	Quackle::Reporter::reportGame(game, &playah, &report);
-	if (!m_quiet) { UVcout << report << endl; }
+	if (!m_quiet)
+	{
+		UVcout << report << endl;
+	}
 
 	QString gamesDir = m_gamesDir;
 	gamesDir.replace("PLAYERNAME", QuackleIO::Util::uvStringToQString(m_computerPlayerToTest->name()));
@@ -1301,39 +1325,153 @@ void TestHarness::winTable(unsigned int games)
 	UVcout << "WINTABLE SUMMARY games " << games << endl;
 }
 
+void TestHarness::endgame(unsigned int games)
+{
+	ComputerPlayer *staticPlayer = checkPlayerName("Static Player");
+	const long long generations = m_computerPlayerToTest && m_computerPlayerToTest->parameters().endgameGenerations > 0
+		? m_computerPlayerToTest->parameters().endgameGenerations
+		: 20000;
+	const long long judgeGenerations = 10 * generations;
+
+	int positions = 0;
+	int proven = 0;
+	int changed = 0;
+	int judged = 0;
+	int heuristicBetter = 0;
+	int lineMismatches = 0;
+	long long gain = 0;
+	double secondsSolver = 0;
+	double secondsHeuristic = 0;
+
+	for (unsigned int g = 0; g < games; ++g)
+	{
+		Quackle::PlayerList players;
+		players.push_back(Quackle::Player(MARK_UV("A"), Quackle::Player::ComputerPlayerType, 0));
+		players.push_back(Quackle::Player(MARK_UV("B"), Quackle::Player::ComputerPlayerType, 1));
+		Quackle::Game game;
+		game.setPlayers(players);
+		game.addPosition();
+		while (!game.currentPosition().gameOver() && !game.currentPosition().bag().empty())
+			game.haveComputerPlay(staticPlayer);
+
+		for (int ply = 0; !game.currentPosition().gameOver(); ++ply)
+		{
+			const GamePosition position = game.currentPosition();
+			int theirTiles = 0;
+			for (const auto &player : position.players())
+				if (player.id() != position.currentPlayer().id())
+					theirTiles = (int)player.rack().tiles().length();
+			++positions;
+
+			QElapsedTimer timer;
+			timer.start();
+			EndgameSolver solver;
+			const EndgameSolver::Result solved = solver.solve(position, generations);
+			secondsSolver += timer.elapsed() / 1000.0;
+
+			timer.start();
+			EndgamePlayer heuristic;
+			ComputerParameters parameters = heuristic.parameters();
+			parameters.endgameGenerations = 0;
+			heuristic.setParameters(parameters);
+			heuristic.setPosition(position);
+			const Move heuristicMove = heuristic.move();
+			secondsHeuristic += timer.elapsed() / 1000.0;
+
+			UVcout << "ENDGAME game " << g << " ply " << ply << " tiles " << position.currentPlayer().rack().tiles().length() << "+"
+				   << theirTiles << " solver " << solved.move << " value " << solved.value << (solved.exact ? " exact" : " estimate")
+				   << " depth " << solved.depth << " generations " << solved.generations << " heuristic " << heuristicMove << endl;
+
+			proven += solved.exact;
+			if (solved.exact)
+			{
+				// Both sides playing proven moves must realize the proven value under the game's own scoring.
+				const int me = position.currentPlayer().id();
+				Quackle::Game line(game);
+				bool lineProven = true;
+				while (lineProven && !line.currentPosition().gameOver())
+				{
+					EndgameSolver step;
+					const EndgameSolver::Result next = step.solve(line.currentPosition(), generations);
+					lineProven = next.exact;
+					if (lineProven)
+						line.commitMove(next.move);
+				}
+				if (lineProven)
+				{
+					int spread = 0;
+					for (const auto &player : line.currentPosition().endgameAdjustedScores())
+						spread += player.id() == me ? player.score() : -player.score();
+					if (spread - position.spread(me) != solved.value)
+					{
+						++lineMismatches;
+						UVcout << "ENDGAME   MISMATCH proven line ends at " << spread - position.spread(me) << endl;
+					}
+				}
+			}
+			if (solved.exact && !(solved.move == heuristicMove))
+			{
+				++changed;
+				EndgameSolver judge;
+				const EndgameSolver::Result value = judge.evaluate(position, heuristicMove, judgeGenerations);
+				UVcout << "ENDGAME   heuristic move value " << value.value << (value.exact ? " exact" : " estimate") << endl;
+				if (value.exact)
+				{
+					++judged;
+					gain += solved.value - value.value;
+					heuristicBetter += value.value > solved.value;
+				}
+			}
+
+			game.haveComputerPlay(staticPlayer);
+		}
+	}
+
+	UVcout << "ENDGAME SUMMARY games " << games << ", positions " << positions << ", proven " << proven << ", solver differs " << changed
+		   << ", judged " << judged << ", total gain " << gain << ", heuristic better " << heuristicBetter << ", line mismatches "
+		   << lineMismatches << endl;
+	UVcout << "ENDGAME TIME secondsSolver " << secondsSolver << " secondsHeuristic " << secondsHeuristic << endl;
+}
+
 static void dumpGaddag(const GaddagNode *node, const LetterString &prefix)
 {
-    for (const GaddagNode* child = node->firstChild(); child; child = child->nextSibling()) {
-	Letter childLetter = child->letter();
-	LetterString newPrefix(prefix);
-	newPrefix += childLetter;
+	for (const GaddagNode *child = node->firstChild(); child; child = child->nextSibling())
+	{
+		Letter childLetter = child->letter();
+		LetterString newPrefix(prefix);
+		newPrefix += childLetter;
 
-	if (child->isTerminal()) {
-	    UVcout << "wordDump: " << QUACKLE_ALPHABET_PARAMETERS->userVisible(newPrefix) << endl;
+		if (child->isTerminal())
+		{
+			UVcout << "wordDump: " << QUACKLE_ALPHABET_PARAMETERS->userVisible(newPrefix) << endl;
+		}
+		if (child->firstChild())
+		{
+			dumpGaddag(child, newPrefix);
+		}
 	}
-	if (child->firstChild()) {
-	    dumpGaddag(child, newPrefix);
-	}
-    }
 }
 
 void TestHarness::wordDump()
 {
-    if (QUACKLE_LEXICON_PARAMETERS->hasGaddag()) {
-	dumpGaddag(QUACKLE_LEXICON_PARAMETERS->gaddagRoot(),
-		      LetterString());
-    } else if (QUACKLE_LEXICON_PARAMETERS->hasSomething()) {
-	// Enumerate straight from the dawg so the full word list is available
-	// even when no gaddag has been built yet -- e.g. to feed makegaddag.
-	Generator gen;
-	int flags = Generator::AnagramRearrange | Generator::AddAnyLetters
-	    | Generator::ClearBlanknesses;
-	WordList all = gen.anagramLetters("", flags);
-	for (WordList::const_iterator it = all.begin(); it != all.end(); ++it)
-	    UVcout << "wordDump: " << QUACKLE_ALPHABET_PARAMETERS->userVisible(*it) << endl;
-    } else {
-	UVcout << "wordDump: no lexicon" << endl;
-    }
+	if (QUACKLE_LEXICON_PARAMETERS->hasGaddag())
+	{
+		dumpGaddag(QUACKLE_LEXICON_PARAMETERS->gaddagRoot(), LetterString());
+	}
+	else if (QUACKLE_LEXICON_PARAMETERS->hasSomething())
+	{
+		// Enumerate straight from the dawg so the full word list is available
+		// even when no gaddag has been built yet -- e.g. to feed makegaddag.
+		Generator gen;
+		int flags = Generator::AnagramRearrange | Generator::AddAnyLetters | Generator::ClearBlanknesses;
+		WordList all = gen.anagramLetters("", flags);
+		for (WordList::const_iterator it = all.begin(); it != all.end(); ++it)
+			UVcout << "wordDump: " << QUACKLE_ALPHABET_PARAMETERS->userVisible(*it) << endl;
+	}
+	else
+	{
+		UVcout << "wordDump: no lexicon" << endl;
+	}
 }
 
 void TestHarness::cpuTopology()

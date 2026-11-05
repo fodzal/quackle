@@ -22,6 +22,7 @@ set(LIBQUACKLE_SOURCES
 	datamanager.cpp
 	endgame.cpp
 	endgameplayer.cpp
+	endgamesolver.cpp
 	enumerator.cpp
 	evaluator.cpp
 	game.cpp
@@ -53,6 +54,7 @@ set(LIBQUACKLE_HEADERS
 	datamanager.h
 	endgame.h
 	endgameplayer.h
+	endgamesolver.h
 	enumerator.h
 	evaluator.h
 	fixedstring.h

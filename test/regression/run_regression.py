@@ -142,6 +142,7 @@ else:
 _SEED_LINE = re.compile(r"^using seed \d+$")
 _TIMING = re.compile(r"played in \d+ seconds")
 _ARENA_TIMING = re.compile(r"\b(seconds[AB]|mid|pre|end) \S+")
+_ENDGAME_TIMING = re.compile(r"\b(seconds(?:Solver|Heuristic)) \S+")
 
 
 def normalize(stdout: str) -> str:
@@ -158,6 +159,8 @@ def normalize(stdout: str) -> str:
     body = "\n".join(lines[start:])
     body = _TIMING.sub("played in <N> seconds", body)
     body = "\n".join(_ARENA_TIMING.sub(r"\1 <N>", line) if line.startswith("ARENA ") else line
+                     for line in body.split("\n"))
+    body = "\n".join(_ENDGAME_TIMING.sub(r"\1 <N>", line) if line.startswith("ENDGAME ") else line
                      for line in body.split("\n"))
     # Ensure a single trailing newline for stable file contents / digests.
     return body.rstrip("\n") + "\n"

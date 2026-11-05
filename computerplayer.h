@@ -48,6 +48,9 @@ struct ComputerParameters
 
 	// When false, only the iteration budgets bound the search, so its depth no longer depends on machine speed.
 	bool timeLimit = true;
+
+	// Budget for the endgame solver, whose move is played only if proven; 0 leaves Endgame's heuristic alone.
+	int endgameGenerations = 0;
 };
 
 class ComputerDispatch
