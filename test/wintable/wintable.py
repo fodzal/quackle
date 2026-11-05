@@ -83,7 +83,8 @@ def fit_table(counts, min_positions):
         width = 0
         while True:
             points = [p for u in range(unseen - width, unseen + width + 1) for p in by_unseen.get(u, [])]
-            if sum(n for _, n, _ in points) >= min_positions or width >= max_unseen:
+            # The opening position always has lead 0, which says nothing about the slope.
+            if sum(n for x, n, _ in points if x != 0) >= min_positions or width >= max_unseen:
                 break
             width += 1
         a, b = fit_logistic(points)

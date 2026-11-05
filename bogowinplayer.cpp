@@ -72,7 +72,7 @@ double SmartBogowin::bogopoints(Move &move)
 
 		if ((move.win >= lower) && (move.win <= upper))
 		{
-			double fraction = (move.win - lower) / (upper - lower);
+			const double fraction = upper > lower ? (move.win - lower) / (upper - lower) : 0;
 			return (double)x + fraction - spread;
 		}
 	}
