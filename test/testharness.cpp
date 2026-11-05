@@ -168,6 +168,9 @@ const char *usage = "Optional arguments:\n"
 					"       'anagram' anagrams letters supplied in --letters.\n"
 					"       'cputopology' dumps detected CPU topology and thread pool sizing.\n"
 					"       'sim' checks the simulator's accumulators.\n"
+					"       'arena' plays --repetitions pairs of games between --computer\n"
+					"               and --computer2. Both games of a pair draw the same tile\n"
+					"               sequence, with seats swapped; pair k uses seed --seed + k.\n"
 					"--position=game.gcg; this option can be repeated to specify positions\n"
 					"                     to test.\n"
 					"--lexicon=; sets the lexicon (default 'nwl23').\n"
@@ -288,6 +291,8 @@ void TestHarness::executeFromArguments()
 		selfPlayGames(seed, reps, report, false);
 	else if (mode == "playability")
 		selfPlayGames(seed, reps, report, true);
+	else if (mode == "arena")
+		arena(seed == numeric_limits<unsigned int>::max() ? 1 : seed, reps);
 	else if (mode == "worddump")
 		wordDump();
 	else if (mode == "bingos")
@@ -940,6 +945,189 @@ TestHarness::SelfPlayResult TestHarness::selfPlayGame(unsigned int gameNumber, b
 	outFile.close();
 	outFileReport.close();
 	return result;
+}
+
+namespace
+{
+// splitmix64: portable, unlike std::shuffle, so a seed deals the same tiles on every platform.
+class ArenaRng
+{
+public:
+	explicit ArenaRng(uint64_t seed)
+		: m_state(seed)
+	{
+	}
+
+	size_t below(size_t n)
+	{
+		m_state += 0x9E3779B97F4A7C15ULL;
+		uint64_t z = m_state;
+		z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+		z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+		return (size_t)((z ^ (z >> 31)) % n);
+	}
+
+	void shuffle(LongLetterString &tiles)
+	{
+		for (size_t i = tiles.size(); i > 1; --i)
+			std::swap(tiles[i - 1], tiles[below(i)]);
+	}
+
+private:
+	uint64_t m_state;
+};
+
+LongLetterString sorted(LongLetterString tiles)
+{
+	std::sort(tiles.begin(), tiles.end());
+	return tiles;
+}
+}
+
+TestHarness::ArenaResult TestHarness::arenaGame(unsigned int seed, bool bMovesFirst)
+{
+	ArenaResult result;
+	ArenaRng rng(seed);
+
+	Quackle::Player compyA(m_computerPlayerToTest->name() + MARK_UV(" A"), Quackle::Player::ComputerPlayerType, 0);
+	compyA.setAbbreviatedName(MARK_UV("A"));
+	Quackle::Player compyB(m_computerPlayer2ToTest->name() + MARK_UV(" B"), Quackle::Player::ComputerPlayerType, 1);
+	compyB.setAbbreviatedName(MARK_UV("B"));
+
+	Quackle::PlayerList players;
+	if (bMovesFirst)
+	{
+		players.push_back(compyB);
+		players.push_back(compyA);
+	}
+	else
+	{
+		players.push_back(compyA);
+		players.push_back(compyB);
+	}
+
+	// setPlayers numbers players in turn order.
+	const int aId = bMovesFirst ? 1 : 0;
+
+	Quackle::Game game;
+	game.setPlayers(players);
+	game.addPosition();
+
+	// The bag in drawing order: both games of a pair deal from the same sequence.
+	LongLetterString sequence = Bag().tiles();
+	rng.shuffle(sequence);
+
+	const int rackSize = QUACKLE_PARAMETERS->rackSize();
+	vector<int> ids;
+	for (const auto &player : game.currentPosition().players())
+		ids.push_back(player.id());
+	for (int id : ids)
+	{
+		LetterString rack;
+		for (int i = 0; i < rackSize; ++i)
+			rack += sequence[i];
+		sequence.erase(0, rackSize);
+		game.currentPosition().setPlayerRack(id, Rack(rack), /* adjust bag */ true);
+	}
+
+	const int maxMoves = 1000;
+	for (result.moves = 0; result.moves < maxMoves && !game.currentPosition().gameOver(); ++result.moves)
+	{
+		const int moverId = game.currentPosition().currentPlayer().id();
+		ComputerPlayer *player = moverId == aId ? m_computerPlayerToTest : m_computerPlayer2ToTest;
+
+		QElapsedTimer timer;
+		timer.start();
+		player->setPosition(game.currentPosition());
+		const Move move = player->move();
+		(moverId == aId ? result.secondsA : result.secondsB) += timer.elapsed() / 1000.0;
+
+		// Only now, so that the player never sees the order of the bag.
+		LetterString order;
+		for (int i = std::min<int>(rackSize, (int)sequence.size()) - 1; i >= 0; --i)
+			order += sequence[i];
+		game.currentPosition().setDrawingOrder(order);
+		game.commitMove(move);
+
+		const GamePosition &position = game.currentPosition();
+		for (const auto &it : position.players())
+			if (it.id() == moverId)
+				sequence.erase(0, std::min(sequence.size(), (size_t)it.drawnLetters().tiles().length()));
+
+		if (move.action == Move::Exchange)
+			for (Letter letter : move.usedTiles())
+				sequence.insert(rng.below(sequence.size() + 1), 1, letter);
+
+		if (sorted(sequence) != sorted(position.bag().tiles()))
+		{
+			++result.resyncs;
+			sequence = position.bag().tiles();
+			rng.shuffle(sequence);
+		}
+	}
+
+	for (const auto &it : game.currentPosition().endgameAdjustedScores())
+	{
+		if (it.id() == aId)
+			result.scoreA = it.score();
+		else
+			result.scoreB = it.score();
+	}
+
+	return result;
+}
+
+void TestHarness::arena(unsigned int firstSeed, unsigned int pairs)
+{
+	unsigned int games = 0;
+	unsigned int winsA = 0;
+	unsigned int winsB = 0;
+	unsigned int ties = 0;
+	double pairScoreSum = 0;
+	double pairScoreSquares = 0;
+	double pairSpreadSum = 0;
+	double pairSpreadSquares = 0;
+
+	for (unsigned int pair = 0; pair < pairs; ++pair)
+	{
+		const unsigned int seed = firstSeed + pair;
+		double pairScore = 0;
+		double pairSpread = 0;
+
+		for (int seat = 0; seat < 2; ++seat)
+		{
+			const ArenaResult r = arenaGame(seed, seat == 1);
+			const double score = r.scoreA > r.scoreB ? 1 : (r.scoreA == r.scoreB ? 0.5 : 0);
+			pairScore += score / 2;
+			pairSpread += (r.scoreA - r.scoreB) / 2.0;
+			++games;
+			winsA += r.scoreA > r.scoreB;
+			winsB += r.scoreA < r.scoreB;
+			ties += r.scoreA == r.scoreB;
+
+			UVcout << "ARENA seed " << seed << " first " << (seat ? "B" : "A") << " scoreA " << r.scoreA << " scoreB " << r.scoreB
+				   << " moves " << r.moves << " secondsA " << r.secondsA << " secondsB " << r.secondsB << " resyncs " << r.resyncs << endl;
+		}
+
+		pairScoreSum += pairScore;
+		pairScoreSquares += pairScore * pairScore;
+		pairSpreadSum += pairSpread;
+		pairSpreadSquares += pairSpread * pairSpread;
+	}
+
+	// Pairs, not games, are the independent samples.
+	auto halfWidth = [pairs](double sum, double squares) {
+		if (pairs < 2)
+			return 0.0;
+		const double mean = sum / pairs;
+		const double variance = (squares - pairs * mean * mean) / (pairs - 1);
+		return 1.96 * sqrt(std::max(0.0, variance) / pairs);
+	};
+
+	const double n = pairs ? pairs : 1;
+	UVcout << "ARENA SUMMARY pairs " << pairs << ", games " << games << ", A wins " << winsA << ", B wins " << winsB << ", ties " << ties
+		   << ", A score " << 100 * pairScoreSum / n << "% +- " << 100 * halfWidth(pairScoreSum, pairScoreSquares) << ", mean spread A-B "
+		   << pairSpreadSum / n << " +- " << halfWidth(pairSpreadSum, pairSpreadSquares) << endl;
 }
 
 static void dumpGaddag(const GaddagNode *node, const LetterString &prefix)

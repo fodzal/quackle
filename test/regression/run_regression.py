@@ -141,6 +141,7 @@ else:
 
 _SEED_LINE = re.compile(r"^using seed \d+$")
 _TIMING = re.compile(r"played in \d+ seconds")
+_ARENA_TIMING = re.compile(r"seconds([AB]) \S+")
 
 
 def normalize(stdout: str) -> str:
@@ -156,6 +157,7 @@ def normalize(stdout: str) -> str:
 
     body = "\n".join(lines[start:])
     body = _TIMING.sub("played in <N> seconds", body)
+    body = _ARENA_TIMING.sub(r"seconds\1 <N>", body)
     # Ensure a single trailing newline for stable file contents / digests.
     return body.rstrip("\n") + "\n"
 

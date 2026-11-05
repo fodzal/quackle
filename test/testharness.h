@@ -96,6 +96,20 @@ public:
 		bool finished = false;
 	};
 
+	struct ArenaResult
+	{
+		int scoreA = 0;
+		int scoreB = 0;
+		int moves = 0;
+		double secondsA = 0;
+		double secondsB = 0;
+		int resyncs = 0;
+	};
+
+	// Plays pairs of games between the two computer players.
+	void arena(unsigned int firstSeed, unsigned int pairs);
+	ArenaResult arenaGame(unsigned int seed, bool bMovesFirst);
+
 	void selfPlayGames(unsigned int seed, unsigned int reps, bool reports, bool playability);
 	SelfPlayResult selfPlayGame(unsigned int gameNumber, bool reports, bool playability);
 
