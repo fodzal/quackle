@@ -29,6 +29,7 @@ précédente ; les fusionner dans l'ordre). `docs/ai-plan` est à part, sur `mas
 | 8 | `fix/bogowin-symmetry` | B3 : référence et challenger comparés au même nombre de tirages | 26/26 ; smoke test ASan Championship |
 | 9 | `test/bench` | 0.5 — `--mode bench` ; temps de l'arène par phase (milieu, preendgame, finale) | 26/26 ; golden arène ré-enregistré (format de ligne seulement) |
 | 10 | `perf/leaves` | V2 — superleaves en table de hachage ; cache par chevalet des valeurs de leave | 26/26, goldens inchangés ; playaheads ×1,29–1,33 |
+| 11 | `tools/win-table` | 5.3 — `--mode wintable` + `test/wintable/wintable.py` (ajustement logistique par nombre de tuiles inconnues) ; table `ods5` apprise sur 200 000 parties Static ; `test/arena/compare.py` (comparaison appariée de deux arènes) | 27/27 (nouveau golden `wintable-static`), autres goldens inchangés |
 
 Non traités pour l'instant : B9 (chrono vérifié entre candidats seulement), branches
 existantes `fix/endgame-passout-spread`, `fix/report-considered-move-endgame`,
@@ -43,6 +44,15 @@ utile, car les playouts de finale peuvent désormais contenir des passes).
 | 2026-11-05 | Championship 20/50 `crn=0` | idem `crn=1` | 64 | 53,5 % ± 7,4 | +7,4 ± 15,6 | ≈ 5,4 |
 | 2026-11-05 | Static | Championship 132/330 (graine 5000) | 100 | **56,5 % ± 6,2** (Elo +45, +2..+90) | +6,7 ± 16,2 | B 19,8 |
 | 2026-11-05 | Championship 33/82 | Championship 132/330 (graine 6000, branche 10) | 100 | **54,0 % ± 6,6** (Elo +28, −18..+75) | +8,5 ± 13,9 | A 8,7 / B 19,7 |
+| 2026-11-05 | Static | Championship 132/330, table `ods5` (graine 5000, branche 11) | 100 | **57,0 % ± 6,1** (Elo +49) ; apparié : +0,5 ± 7,8 | +15,7 ± 14,4 ; apparié : +8,9 ± 16,6 | B 17,1 |
+
+**Table de victoire `ods5` (branche 11).** Rejouée sur les mêmes graines que la référence,
+la table apprise ne change pas le résultat de façon mesurable (+0,5 point de score, +9 points
+d'écart, intervalles larges ; 88 paires sur 100 ont une issue différente, ce qui montre
+combien une partie d'arène est sensible au moindre changement de coup). Elle est gardée :
+elle est apprise et non codée en dur, et le preendgame tombe de 33 % à 22 % du temps (coup
+moyen 17,1 s au lieu de 19,8 s). La table anglaise n'expliquait donc pas le faible gain de la
+simulation. Prochaine expérience : l'horizon (4 plis contre 2, mêmes graines), sans code.
 
 **Budget ×4 (branche 10).** Quadrupler les itérations n'apporte pas de gain mesurable sur 100
 paires. Le temps se partage 67 % milieu de partie / 33 % preendgame / 0 % finale ; à budget ¼,
