@@ -32,6 +32,10 @@ Linux uses the same Qt locations as macOS (`~/dev/qt/<ver>/...`).
 
 Windows is only built against Qt 6.10.3, installed at `C:\dev\qt\<ver>\<arch>` (e.g. `C:\dev\qt\6.10.3\msvc2022_64`).
 
+With a non-English MSVC, run `chcp 65001` before configuring and building: otherwise the
+`/showIncludes` prefix CMake records does not match what `cl` prints, and Ninja silently stops
+tracking header dependencies.
+
 ## Building (macOS)
 
 From a build directory, configure against `quacker/` (which pulls in libquackle and libquackleio) and build with Ninja. `QT_VERSION` defaults to `6`. For Qt6:

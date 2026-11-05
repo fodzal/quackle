@@ -78,7 +78,7 @@ Branche `fix/multiplayer`. À 2 joueurs, le comportement est inchangé (goldens 
    `Resolvent` délègue toujours à `SmartBogowin`, qui à sac vide simule jusqu'à la fin au lieu
    d'appeler l'endgame ; `EndgamePlayer` (« Speedy Player ») revient à l'évaluation statique.
    `GamePosition::setOppRack` et l'`Enumerator` restent 2 joueurs, mais ne sont plus atteints.
-5. **[vu] Bruit stdout.** `SmartBogowin::moves` écrit la position entière sur `UVcout` à chaque
+5. **[corrigé, `fix/quiet-sim`] Bruit stdout.** `SmartBogowin::moves` écrit la position entière sur `UVcout` à chaque
    coup.
 6. **[corrigé] Couverture.** Le harnais accepte `--players=N` en self-play ; suites : self-play
    3 et 4 joueurs (nwl23, csw24), `positions` et `report` sur `multiplayer-crash.gcg`, et des
@@ -90,7 +90,7 @@ directement par des playouts plus longs plutôt que par la table.
 
 ## C. Correction / sûreté des threads
 
-1. **[vu] Course de données probable sur les superleaves.** `StrategyParameters::superleave`
+1. **[corrigé, `fix/strategy-loading`] Course de données sur les superleaves.** `StrategyParameters::superleave`
    fait `m_superleaves[leave]` sur un `std::map` partagé : une clé absente **insère**, depuis
    plusieurs threads de simulation en parallèle. Correctif : `find()` en lecture seule (et ne plus
    confondre « valeur 0 » et « absent »).

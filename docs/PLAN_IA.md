@@ -12,6 +12,51 @@ Règles communes à toutes les PR :
 - rien de spécifique à une langue dans le code : ce qui dépend du lexique va dans
   `data/strategy/<lexique>/`, produit par un outil.
 
+## Avancement
+
+Branches poussées sur `origin`, **empilées** dans cet ordre (chacune part de la
+précédente ; les fusionner dans l'ordre). `docs/ai-plan` est à part, sur `master`.
+
+| # | Branche | Contenu | Vérification |
+|---|---|---|---|
+| 1 | `fix/harness-selfplay` | 0.2 — B11 : `--quiet` jouait 0 coup ; parties complètes ; bilan | 25/25 ; goldens selfplay/playability ré-enregistrés (ligne de bilan ajoutée, rien d'autre) |
+| 2 | `test/player-config` | 0.3 — `--config` / `--config2` (itérations, candidats, plis, élagage, `timelimit=0`) | 25/25, goldens inchangés |
+| 3 | `test/arena` | 0.4 — `--mode arena` + `test/arena/arena.py` | 26/26 (nouveau golden `arena-speedy-vs-static`) ; Static contre Static : parties exactement symétriques |
+| 4 | `ai/deterministic-sim` | B4 + reproductibilité : graine par playahead, nombres aléatoires communs (`crn`) | 26/26 ; résultat identique avec 1 et 4 threads |
+| 5 | `fix/quiet-sim` | ROADMAP B.5 : plus de dump de position à chaque coup | — |
+| 6 | `fix/pass-candidate` | B1 : la passe est candidate quand le sac est vide | 26/26 ; **pas encore de position de test** (viendra avec 0.6) |
+| 7 | `fix/strategy-loading` | B5, B6 (écart interpolé), B7, ROADMAP C.1 | 26/26, goldens inchangés |
+| 8 | `fix/bogowin-symmetry` | B3 : référence et challenger comparés au même nombre de tirages | 26/26 ; smoke test ASan Championship |
+
+Non traités pour l'instant : B9 (chrono vérifié entre candidats seulement), branches
+existantes `fix/endgame-passout-spread`, `fix/report-considered-move-endgame`,
+`fix/multiplayer` (à fusionner d'abord ; `fix/pass-candidate` rend la correction A.8 plus
+utile, car les playouts de finale peuvent désormais contenir des passes).
+
+### Mesures (Release, `ods5`, 8 processus × 1 thread)
+
+| Date | A | B | Paires | Score de B | Écart B−A | s/coup |
+|---|---|---|---|---|---|---|
+| 2026-11-05 | Static | Championship 132/330 | 8 | 75,0 % ± 18,5 | +19 ± 33 | B 12,7 |
+| 2026-11-05 | Championship 20/50 `crn=0` | idem `crn=1` | 64 | 53,5 % ± 7,4 | +7,4 ± 15,6 | ≈ 5,4 |
+
+Débit observé : 128 parties Championship 20/50 contre lui-même en 44 min. À plein budget
+(132/330), compter ≈ 35 paires/heure, soit ≈ 300 paires par nuit : intervalle ≈ ± 4,5 points
+de score. Une amélioration de moins de ~3 points de % de victoire ne sera donc pas
+mesurable en une nuit ; le corpus de positions (0.6) reste nécessaire pour les effets fins.
+
+### Ajustements du plan
+
+- Ajouté **`ai/deterministic-sim`** en phase 0 (au lieu de la phase 3) : les simulations
+  n'étaient pas reproductibles (graines `random_device` dans les threads), ce qui empêchait
+  de rejouer une partie d'arène. L'item 3.1 est fait.
+- 0.5 (bench) doit **décomposer le temps par phase** (milieu de partie, preendgame,
+  finale) : avec `timelimit=0`, le preendgame n'a plus de plafond de temps et pèse lourd.
+- 0.6 (corpus) : extraire les positions des parties de l'arène (finales où passer gagne,
+  preendgames), plutôt que de les construire à la main — une finale exige les 100 tuiles.
+- Build Windows : voir `ARCHITECTURE.md` §10 (suivi des en-têtes cassé sous MSVC en
+  français sans `chcp 65001`).
+
 ## Vue d'ensemble
 
 ```

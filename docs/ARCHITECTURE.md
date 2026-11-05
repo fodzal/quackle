@@ -172,6 +172,13 @@ Lexiques fournis : `nwl23`, `csw24`, `ods5` (français, ancien), `osps`, etc. (`
   Qt 6.10.3, Ninja, Python 3.13. Build de test : `build-asan` (RelWithDebInfo + ASan).
   Exécuter les binaires avec `C:\dev\qt\6.10.3\msvc2022_64\bin` dans le PATH.
   Régression complète sur `master` : 25/25, aucune erreur ASan, environ 6 min.
+- **MSVC en français** : `cl /showIncludes` écrit « Remarque : inclusion du fichier : » avec
+  une espace insécable dans la page de codes de la console (850). CMake enregistre ce préfixe en
+  UTF-8 ; Ninja ne reconnaît alors plus les lignes et **ne suit plus les dépendances aux
+  en-têtes** (un `.h` modifié ne recompile rien). Lancer `chcp 65001` avant `cmake`/`ninja`.
+  Seul le pack de langue français est installé, donc `VSLANG=1033` est sans effet.
+- Arène : build `build-release` (Release, sans ASan), `python test/arena/arena.py --bin build-release`
+  (voir `test/arena/README.md`).
 - Harnais : `test/libquackle_test --mode=<positions|report|selfplay|sim|leavecalc|staticleaves|…>`
   `--computer="Championship Player" --seed=N --threads=N --position=…`.
   Ne pas utiliser `quackletest` (legacy).
