@@ -19,6 +19,7 @@
 #ifndef QUACKLE_STRATEGYPARAMETERS_H
 #define QUACKLE_STRATEGYPARAMETERS_H
 
+#include <cmath>
 #include <map>
 #include "alphabetparameters.h"
 
@@ -42,7 +43,11 @@ public:
 	double tileWorth(Letter letter) const;
 	double vcPlace(int start, int length, int consbits);
 	double bogowin(int lead, int unseen, int blanks);
-	double superleave(LetterString leave);
+	// interpolates between the two integer leads around lead
+	double bogowin(double lead, int unseen, int blanks);
+
+	// false if the leave has no superleave entry
+	bool superleave(const LetterString &leave, double *value) const;
 
 protected:
 	bool loadSyn2(const string &filename);
@@ -126,8 +131,8 @@ inline double StrategyParameters::bogowin(int lead, int unseen, int /* blanks */
 	if (lead > 300)
 		return 1;
 
-	if (unseen > 93)
-		unseen = 93;
+	if (unseen >= m_bogowinArrayHeight)
+		unseen = m_bogowinArrayHeight - 1;
 
 	if (unseen == 0)
 	{
@@ -142,11 +147,21 @@ inline double StrategyParameters::bogowin(int lead, int unseen, int /* blanks */
 	return m_bogowin[lead + 300][unseen];
 }
 
-inline double StrategyParameters::superleave(LetterString leave)
+inline double StrategyParameters::bogowin(double lead, int unseen, int blanks)
 {
-	if (leave.length() == 0)
-		return 0.0;
-	return m_superleaves[leave];
+	const double floorLead = std::floor(lead);
+	const double fraction = lead - floorLead;
+	const double lower = bogowin((int)floorLead, unseen, blanks);
+	return fraction == 0 ? lower : lower + fraction * (bogowin((int)floorLead + 1, unseen, blanks) - lower);
+}
+
+inline bool StrategyParameters::superleave(const LetterString &leave, double *value) const
+{
+	const SuperLeavesMap::const_iterator it = m_superleaves.find(leave);
+	if (it == m_superleaves.end())
+		return false;
+	*value = it->second;
+	return true;
 }
 
 }

@@ -749,11 +749,11 @@ void Simulator::simulateOnePosition(SimmedMoveMessage &message, const SimmedMove
 		message.bogowin = true;
 		if (game.currentPosition().currentPlayer().id() == constants.startPlayerId)
 			message.wins = QUACKLE_STRATEGY_PARAMETERS->bogowin(
-				(int)(spread + residual), game.currentPosition().bag().size() + QUACKLE_PARAMETERS->rackSize(), 0);
+				spread + residual, game.currentPosition().bag().size() + QUACKLE_PARAMETERS->rackSize(), 0);
 		else
 			message.wins = 1.0
 				- QUACKLE_STRATEGY_PARAMETERS->bogowin(
-					(int)(-spread - residual), game.currentPosition().bag().size() + QUACKLE_PARAMETERS->rackSize(), 0);
+					-spread - residual, game.currentPosition().bag().size() + QUACKLE_PARAMETERS->rackSize(), 0);
 	}
 }
 

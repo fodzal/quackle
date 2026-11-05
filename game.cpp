@@ -1091,6 +1091,7 @@ PlayerList GamePosition::leadingPlayers() const
 
 int GamePosition::spread(int playerID) const
 {
+	bool hasOpponent = false;
 	int nextBest = 0;
 	int currentPlayerScore = 0;
 
@@ -1103,8 +1104,9 @@ int GamePosition::spread(int playerID) const
 			continue;
 		}
 
-		if (it.score() > nextBest)
+		if (!hasOpponent || it.score() > nextBest)
 			nextBest = it.score();
+		hasOpponent = true;
 	}
 
 	return currentPlayerScore - nextBest;

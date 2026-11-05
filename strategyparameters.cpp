@@ -98,17 +98,22 @@ bool StrategyParameters::loadBogowin(const string &filename)
 		return false;
 	}
 
-	while (!file.eof())
+	int lead, unseen;
+	double wins;
+	int skipped = 0;
+	while (file >> lead >> unseen >> wins)
 	{
-		int lead, unseen;
-		double wins;
-
-		file >> lead;
-		file >> unseen;
-		file >> wins;
+		if (lead < -300 || lead > 300 || unseen < 0 || unseen >= m_bogowinArrayHeight)
+		{
+			++skipped;
+			continue;
+		}
 
 		m_bogowin[lead + 300][unseen] = wins;
 	}
+
+	if (skipped > 0)
+		cerr << "Ignored " << skipped << " out-of-range entries in " << filename << endl;
 
 	file.close();
 	return true;
@@ -220,13 +225,15 @@ bool StrategyParameters::loadSuperleaves(const string &filename)
 	unsigned char intvaluefrac;
 	unsigned int intvalue;
 
-	while (!file.eof())
+	while (file.read((char *)(&leavesize), 1))
 	{
-		file.read((char *)(&leavesize), 1);
-		file.read(leavebytes, leavesize);
-		file.read((char *)(&intvaluefrac), 1);
-		file.read((char *)(&intvalueint), 1);
-		if (file.eof())
+		if (leavesize > sizeof(leavebytes))
+		{
+			cerr << "Corrupt leave of length " << (int)leavesize << " in " << filename << endl;
+			break;
+		}
+
+		if (!file.read(leavebytes, leavesize) || !file.read((char *)(&intvaluefrac), 1) || !file.read((char *)(&intvalueint), 1))
 			break;
 
 		intvalue = (unsigned int)(intvalueint) * 256 + (unsigned int)(intvaluefrac);
