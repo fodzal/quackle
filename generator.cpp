@@ -1925,6 +1925,14 @@ Move Generator::findstaticbest(bool canExchange)
 	if (canExchange)
 		exchange();
 
+	// With the bag empty, passing can be the only move that wins, so the endgame must see it.
+	if (m_recordall && !m_moveList.empty() && m_position.bag().empty() && !board().isEmpty())
+	{
+		Move pass = Move::createPassMove();
+		pass.equity = equity(pass);
+		m_moveList.push_back(pass);
+	}
+
 	if (m_moveList.empty())
 		m_moveList.push_back(best);
 
