@@ -1521,6 +1521,13 @@ Move Generator::generate()
 // TODO GET RID OF CODE DUPLICATION
 Move Generator::gordongenerate()
 {
+	m_shadow = !m_recordall;
+	if (m_shadow)
+	{
+		m_anchors.clear();
+		prepareShadow();
+	}
+
 	for (int row = 0; row < board().height(); row++)
 	{
 		for (int col = 0; col < board().width(); col++)
@@ -1604,12 +1611,7 @@ Move Generator::gordongenerate()
 				// UVcout << "looking horizontally with the " << board().letter(row, col) <<
 				//         " at " << row + 1 << (char)(col + 'A') << endl;
 
-				m_anchorrow = row;
-				m_anchorcol = col;
-				m_gordonhoriz = true;
-				m_laid = 0;
-				m_leftlimit = k;
-				gordongen(0, LetterString(), QUACKLE_LEXICON_PARAMETERS->gaddagRoot());
+				visitAnchor(row, col, true, k);
 			}
 
 			// generate vertical plays
@@ -1692,17 +1694,229 @@ Move Generator::gordongenerate()
 				// UVcout << "looking vertically with the " << board().letter(row, col) <<
 				//         " at " << row + 1 << (char)(col + 'A') << endl;
 
-				m_anchorrow = row;
-				m_anchorcol = col;
-				m_gordonhoriz = false;
-				m_laid = 0;
-				m_leftlimit = k;
-				gordongen(0, LetterString(), QUACKLE_LEXICON_PARAMETERS->gaddagRoot());
+				visitAnchor(row, col, false, k);
 			}
 		}
 	}
 
+	if (m_shadow)
+	{
+		for (auto &anchor : m_anchors)
+			anchor.bound = shadowBound(anchor.row, anchor.col, anchor.horizontal, anchor.leftLimit);
+		std::stable_sort(m_anchors.begin(), m_anchors.end(), [](const Anchor &a, const Anchor &b) { return a.bound > b.bound; });
+
+		// The equity order is total, so the best move does not depend on the order anchors are searched in.
+		for (const auto &anchor : m_anchors)
+		{
+			if (anchor.bound < best.equity - 1e-6)
+				break;
+			runAnchor(anchor.row, anchor.col, anchor.horizontal, anchor.leftLimit);
+		}
+	}
+
 	return best;
+}
+
+void Generator::visitAnchor(int row, int col, bool horizontal, int leftLimit)
+{
+	if (m_shadow)
+		m_anchors.push_back({ row, col, leftLimit, horizontal, 0 });
+	else
+		runAnchor(row, col, horizontal, leftLimit);
+}
+
+void Generator::runAnchor(int row, int col, bool horizontal, int leftLimit)
+{
+	m_anchorrow = row;
+	m_anchorcol = col;
+	m_gordonhoriz = horizontal;
+	m_laid = 0;
+	m_leftlimit = leftLimit;
+	gordongen(0, LetterString(), QUACKLE_LEXICON_PARAMETERS->gaddagRoot());
+}
+
+void Generator::prepareShadow()
+{
+	const LetterString &tiles = rack().tiles();
+	const int rackTiles = (int)tiles.length();
+
+	m_tileValues.clear();
+	LetterBitset rackLetters;
+	bool hasBlank = false;
+	for (const Letter tile : tiles)
+	{
+		if (tile == QUACKLE_BLANK_MARK)
+		{
+			hasBlank = true;
+			m_tileValues.push_back(0);
+		}
+		else
+		{
+			rackLetters.set(tile - QUACKLE_FIRST_LETTER);
+			m_tileValues.push_back(QUACKLE_ALPHABET_PARAMETERS->score(tile));
+		}
+	}
+	std::sort(m_tileValues.begin(), m_tileValues.end(), std::greater<int>());
+
+	// Assumes, as every evaluator does on a nonempty board, that equity is the score plus a function of the tiles used.
+	m_maxNonScoreEquity.assign(rackTiles + 1, -1e9);
+	const LetterString sorted = String::alphabetize(tiles);
+	vector<std::pair<Letter, int>> distinct;
+	for (const Letter tile : sorted)
+	{
+		if (distinct.empty() || distinct.back().first != tile)
+			distinct.push_back({ tile, 0 });
+		++distinct.back().second;
+	}
+	vector<int> used(distinct.size(), 0);
+	for (;;)
+	{
+		size_t i = 0;
+		while (i < distinct.size() && used[i] == distinct[i].second)
+			used[i++] = 0;
+		if (i == distinct.size())
+			break;
+		++used[i];
+
+		LetterString placed;
+		for (size_t j = 0; j < distinct.size(); ++j)
+			for (int k = 0; k < used[j]; ++k)
+				placed += distinct[j].first == QUACKLE_BLANK_MARK ? QUACKLE_ALPHABET_PARAMETERS->setBlankness(QUACKLE_FIRST_LETTER)
+																  : distinct[j].first;
+		Move move;
+		move.action = Move::Place;
+		move.setTiles(placed);
+		move.startrow = 0;
+		move.startcol = 0;
+		move.horizontal = true;
+		move.score = 0;
+		const int count = (int)placed.length();
+		m_maxNonScoreEquity[count] = std::max(m_maxNonScoreEquity[count], equity(move));
+	}
+
+	for (int row = 0; row < board().height(); ++row)
+		for (int col = 0; col < board().width(); ++col)
+		{
+			const Letter letter = board().letter(row, col);
+			if (!QUACKLE_ALPHABET_PARAMETERS->isSomeLetter(letter))
+				m_squareValue[row][col] = -1;
+			else
+				m_squareValue[row][col] = board().isBlank(row, col)
+					? 0
+					: QUACKLE_ALPHABET_PARAMETERS->score(QUACKLE_ALPHABET_PARAMETERS->clearBlankness(letter));
+		}
+
+	for (int dir = 0; dir < 2; ++dir)
+		for (int row = 0; row < board().height(); ++row)
+			for (int col = 0; col < board().width(); ++col)
+			{
+				m_crossSum[dir][row][col] = 0;
+				m_hasCross[dir][row][col] = false;
+				m_placeable[dir][row][col] = false;
+				if (m_squareValue[row][col] >= 0)
+					continue;
+
+				const int dr = dir == 0 ? 1 : 0;
+				const int dc = dir == 0 ? 0 : 1;
+				for (const int sign : { -1, 1 })
+					for (int r = row + sign * dr, c = col + sign * dc;
+						r >= 0 && c >= 0 && r < board().height() && c < board().width() && m_squareValue[r][c] >= 0;
+						r += sign * dr, c += sign * dc)
+					{
+						m_crossSum[dir][row][col] += m_squareValue[r][c];
+						m_hasCross[dir][row][col] = true;
+					}
+
+				const LetterBitset &cross = dir == 0 ? board().vcross(row, col) : board().hcross(row, col);
+				m_placeable[dir][row][col] = (cross & rackLetters).any() || (hasBlank && cross.any());
+			}
+}
+
+double Generator::shadowBound(int row, int col, bool horizontal, int leftLimit)
+{
+	const int dir = horizontal ? 0 : 1;
+	const int length = horizontal ? board().width() : board().height();
+	const int origin = horizontal ? col : row;
+	const int rackTiles = (int)m_tileValues.size();
+	const int rackSize = QUACKLE_PARAMETERS->rackSize();
+
+	auto square = [&](int d, int &r, int &c) {
+		r = horizontal ? row : row + d;
+		c = horizontal ? col + d : col;
+		return origin + d >= 0 && origin + d < length;
+	};
+	auto occupied = [&](int d) {
+		int r, c;
+		return square(d, r, c) && m_squareValue[r][c] >= 0;
+	};
+
+	struct Span
+	{
+		int placed = 0;
+		int wordMultiplier = 1;
+		int boardSum = 0;
+		int crossFixed = 0;
+		int letterMultipliers[QUACKLE_MAXIMUM_BOARD_SIZE];
+		int crossCoefficients[QUACKLE_MAXIMUM_BOARD_SIZE];
+	};
+	auto include = [&](Span &span, int d) {
+		int r, c;
+		square(d, r, c);
+		if (m_squareValue[r][c] >= 0)
+		{
+			span.boardSum += m_squareValue[r][c];
+			return true;
+		}
+		if (!m_placeable[dir][r][c] || span.placed == rackTiles)
+			return false;
+		const int lm = QUACKLE_BOARD_PARAMETERS->letterMultiplier(r, c);
+		const int wm = QUACKLE_BOARD_PARAMETERS->wordMultiplier(r, c);
+		span.letterMultipliers[span.placed] = lm;
+		span.crossCoefficients[span.placed] = m_hasCross[dir][r][c] ? lm * wm : 0;
+		if (m_hasCross[dir][r][c])
+			span.crossFixed += m_crossSum[dir][r][c] * wm;
+		span.wordMultiplier *= wm;
+		++span.placed;
+		return true;
+	};
+
+	double bound = -1e9;
+	int coefficients[QUACKLE_MAXIMUM_BOARD_SIZE];
+	for (int left = 0; left >= -leftLimit && origin + left >= 0; --left)
+	{
+		Span span;
+		bool ok = true;
+		for (int d = left; d < 0 && ok; ++d)
+			ok = include(span, d);
+		if (!ok)
+			break;
+		const bool leftValid = !occupied(left - 1);
+
+		for (int d = 0; origin + d < length; ++d)
+		{
+			if (!include(span, d))
+				break;
+			if (!leftValid || occupied(d + 1) || span.placed == 0)
+				continue;
+
+			for (int i = 0; i < span.placed; ++i)
+			{
+				const int value = span.letterMultipliers[i] * span.wordMultiplier + span.crossCoefficients[i];
+				int j = i;
+				for (; j > 0 && coefficients[j - 1] < value; --j)
+					coefficients[j] = coefficients[j - 1];
+				coefficients[j] = value;
+			}
+			int score = span.wordMultiplier * span.boardSum + span.crossFixed;
+			for (int i = 0; i < span.placed; ++i)
+				score += m_tileValues[i] * coefficients[i];
+			if (span.placed == rackSize)
+				score += QUACKLE_PARAMETERS->bingoBonus();
+			bound = std::max(bound, score + m_maxNonScoreEquity[span.placed]);
+		}
+	}
+
+	return bound;
 }
 
 void Generator::spit(int i, const LetterString &prefix, int flags)

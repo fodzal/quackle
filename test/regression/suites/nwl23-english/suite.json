@@ -20,6 +20,8 @@
 
     { "name": "wintable-static",       "mode": "wintable", "args": ["--computer=Static Player", "--repetitions=3"], "seed": 11 },
 
+    { "name": "bestmove",              "mode": "bestmove", "args": ["--repetitions=3"], "seed": 21 },
+
     { "name": "endgame-solver",        "mode": "endgame", "args": ["--config=endgame=2000", "--repetitions=4"], "seed": 13 },
 
     { "name": "playability",           "mode": "playability", "args": ["--repetitions=2"], "seed": 5 },

@@ -119,6 +119,7 @@ public:
 	// Prints win counts of the player on turn by tiles unseen and lead.
 	void winTable(unsigned int games);
 	void endgame(unsigned int games);
+	void bestMove(unsigned int games);
 	ArenaResult arenaGame(unsigned int seed, bool bMovesFirst);
 
 	void selfPlayGames(unsigned int seed, unsigned int reps, bool reports, bool playability);

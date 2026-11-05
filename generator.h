@@ -142,6 +142,10 @@ private:
 	void gaddagAnagram(const GaddagNode *node, const LetterString &prefix, int flags);
 	void gordongen(int pos, const LetterString &word, const GaddagNode *node);
 	void gordongoon(int pos, char L, LetterString word, const GaddagNode *node);
+	void visitAnchor(int row, int col, bool horizontal, int leftLimit);
+	void runAnchor(int row, int col, bool horizontal, int leftLimit);
+	void prepareShadow();
+	double shadowBound(int row, int col, bool horizontal, int leftLimit);
 
 	void filterOutDuplicatePlays();
 
@@ -169,6 +173,25 @@ private:
 	bool m_recordall;
 	bool m_gordonhoriz;
 	int m_anchorrow, m_anchorcol;
+
+	struct Anchor
+	{
+		int row;
+		int col;
+		int leftLimit;
+		bool horizontal;
+		double bound;
+	};
+
+	// When only the best move is wanted, anchors are searched by decreasing upper bound on equity.
+	bool m_shadow = false;
+	vector<Anchor> m_anchors;
+	vector<int> m_tileValues;
+	vector<double> m_maxNonScoreEquity;
+	int m_squareValue[QUACKLE_MAXIMUM_BOARD_SIZE][QUACKLE_MAXIMUM_BOARD_SIZE];
+	bool m_placeable[2][QUACKLE_MAXIMUM_BOARD_SIZE][QUACKLE_MAXIMUM_BOARD_SIZE];
+	int m_crossSum[2][QUACKLE_MAXIMUM_BOARD_SIZE][QUACKLE_MAXIMUM_BOARD_SIZE];
+	bool m_hasCross[2][QUACKLE_MAXIMUM_BOARD_SIZE][QUACKLE_MAXIMUM_BOARD_SIZE];
 };
 
 inline void Generator::setPosition(const GamePosition &position)

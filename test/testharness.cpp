@@ -184,6 +184,8 @@ const char *usage = "Optional arguments:\n"
 					"                  and counts, for the player on turn, wins by tiles unseen\n"
 					"                  and lead; test/wintable/wintable.py fits these into a\n"
 					"                  bogowin table.\n"
+					"       'bestmove' plays --repetitions Static Player games and checks, at every\n"
+					"                  position, the best move alone against the full move list.\n"
 					"       'endgame' plays --repetitions Static Player games to an empty bag and\n"
 					"                 compares the endgame solver (budget from --config endgame=)\n"
 					"                 with the playout heuristic, both judged by a deeper solve.\n"
@@ -315,6 +317,8 @@ void TestHarness::executeFromArguments()
 		winTable(reps);
 	else if (mode == "endgame")
 		endgame(reps);
+	else if (mode == "bestmove")
+		bestMove(reps);
 	else if (mode == "worddump")
 		wordDump();
 	else if (mode == "bingos")
@@ -1416,6 +1420,41 @@ void TestHarness::endgame(unsigned int games)
 		   << ", judged " << judged << ", total gain " << gain << ", heuristic better " << heuristicBetter << ", line mismatches "
 		   << lineMismatches << endl;
 	UVcout << "ENDGAME TIME secondsSolver " << secondsSolver << " secondsHeuristic " << secondsHeuristic << endl;
+}
+
+void TestHarness::bestMove(unsigned int games)
+{
+	ComputerPlayer *staticPlayer = checkPlayerName("Static Player");
+	int positions = 0;
+	int mismatches = 0;
+
+	for (unsigned int g = 0; g < games; ++g)
+	{
+		Quackle::PlayerList players;
+		players.push_back(Quackle::Player(MARK_UV("A"), Quackle::Player::ComputerPlayerType, 0));
+		players.push_back(Quackle::Player(MARK_UV("B"), Quackle::Player::ComputerPlayerType, 1));
+		Quackle::Game game;
+		game.setPlayers(players);
+		game.addPosition();
+		for (int moves = 0; moves < 1000 && !game.currentPosition().gameOver(); ++moves)
+		{
+			GamePosition best(game.currentPosition());
+			GamePosition all(game.currentPosition());
+			const Move alone = best.staticBestMove();
+			all.kibitz(1000000);
+			++positions;
+			const Move &head = all.moves().empty() ? alone : all.moves().front();
+			// The full list keeps one of the two directions of a one-tile play, not necessarily the one equityComparator ranks first.
+			if (all.moves().empty() || alone.equity != head.equity || alone.score != head.score || !(alone.usedTiles() == head.usedTiles()))
+			{
+				++mismatches;
+				UVcout << "BESTMOVE MISMATCH game " << g << " move " << moves << ": alone " << alone << ", list " << head << endl;
+			}
+			game.haveComputerPlay(staticPlayer);
+		}
+	}
+
+	UVcout << "BESTMOVE SUMMARY games " << games << ", positions " << positions << ", mismatches " << mismatches << endl;
 }
 
 static void dumpGaddag(const GaddagNode *node, const LetterString &prefix)
