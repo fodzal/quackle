@@ -31,7 +31,7 @@ précédente ; les fusionner dans l'ordre). `docs/ai-plan` est à part, sur `mas
 | 10 | `perf/leaves` | V2 — superleaves en table de hachage ; cache par chevalet des valeurs de leave | 26/26, goldens inchangés ; playaheads ×1,29–1,33 |
 | 11 | `tools/win-table` | 5.3 — `--mode wintable` + `test/wintable/wintable.py` (ajustement logistique par nombre de tuiles inconnues) ; table `ods5` apprise sur 200 000 parties Static ; `test/arena/compare.py` (comparaison appariée de deux arènes) | 27/27 (nouveau golden `wintable-static`), autres goldens inchangés |
 | 12 | `ai/endgame-solver` | 4.1 (partiel) — solveur exact (alpha-bêta, approfondissement itératif, table de transposition, budget en générations) ; `endgame=N` ; `--mode endgame` | 28/28 (nouveau golden `endgame-solver`), autres goldens inchangés ; lignes prouvées rejouées sous les règles du moteur : 0 écart |
-| 13 | `perf/shadow` | V3 (partiel) — `staticBestMove` : ancres explorées par borne d'équité décroissante, arrêt sous le meilleur coup ; `--mode bestmove` | 29/29 (nouveau golden `bestmove`), autres goldens inchangés ; 0 écart sur 1 842 positions ; ≈ 45 % des ancres explorées (gain en temps à mesurer machine libre) |
+| 13 | `perf/shadow` | V3 (partiel) — `staticBestMove` : ancres explorées par borne d'équité décroissante, arrêt sous le meilleur coup ; `--mode bestmove` | 29/29 (nouveau golden `bestmove`), autres goldens inchangés ; 0 écart sur 3 740 positions ; 37 % (`ods5`) / 44 % (`nwl23`) des ancres explorées ; `staticBestMove` ×1,97 / ×1,27, playaheads ×1,24 / ×1,33 |
 
 Non traités pour l'instant : B9 (chrono vérifié entre candidats seulement), branches
 existantes `fix/endgame-passout-spread`, `fix/report-considered-move-endgame`,
@@ -50,8 +50,11 @@ utile, car les playouts de finale peuvent désormais contenir des passes).
 
 **Horizon (branche 11, 4 plis).** Rejouée sur les graines de la référence : 61,0 % ± 6,3
 contre Static (Elo +78), soit +4,0 ± 8,8 points par rapport à 2 plis (non significatif, mais
-meilleur résultat obtenu) ; coût 23,4 s/coup au lieu de 17,1. Face-à-face direct 4 plis contre
-2 plis à budget réduit (33/82, 200 paires, graine 7000) en cours. Ajustement : les expériences
+meilleur résultat obtenu) ; coût 23,4 s/coup au lieu de 17,1. Le face-à-face direct à budget réduit
+(33/82, 200 paires, graine 7000) **ne le confirme pas** : 4 plis contre 2 plis = 46,6 % ± 4,7
+(Elo −23, −56..+9) ; avec peu d'itérations, des playouts plus longs sont plus bruités.
+L'horizon seul n'est donc pas le levier (H1 non confirmé en l'état). Préendgame = 47 % du temps
+à ce budget : son coût fixe (sans plafond, `timelimit=0`) domine dès que les itérations baissent. Ajustement : les expériences
 de recherche se font désormais à 33/82 itérations — le budget ×4 n'apportant rien de mesurable,
 cela permet 4 fois plus de paires pour le même temps.
 
