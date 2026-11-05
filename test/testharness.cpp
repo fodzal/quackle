@@ -175,6 +175,7 @@ const char *usage = "Optional arguments:\n"
 					"       'arena' plays --repetitions pairs of games between --computer\n"
 					"               and --computer2. Both games of a pair draw the same tile\n"
 					"               sequence, with seats swapped; pair k uses seed --seed + k.\n"
+					"       'bench' times move generation and simulation.\n"
 					"--position=game.gcg; this option can be repeated to specify positions\n"
 					"                     to test.\n"
 					"--lexicon=; sets the lexicon (default 'nwl23').\n"
@@ -297,6 +298,8 @@ void TestHarness::executeFromArguments()
 		selfPlayGames(seed, reps, report, true);
 	else if (mode == "arena")
 		arena(seed == numeric_limits<unsigned int>::max() ? 1 : seed, reps);
+	else if (mode == "bench")
+		bench();
 	else if (mode == "worddump")
 		wordDump();
 	else if (mode == "bingos")
@@ -1044,7 +1047,10 @@ TestHarness::ArenaResult TestHarness::arenaGame(unsigned int seed, bool bMovesFi
 		timer.start();
 		player->setPosition(game.currentPosition());
 		const Move move = player->move();
-		(moverId == aId ? result.secondsA : result.secondsB) += timer.elapsed() / 1000.0;
+		const double seconds = timer.elapsed() / 1000.0;
+		(moverId == aId ? result.secondsA : result.secondsB) += seconds;
+		const int bagSize = game.currentPosition().bag().size();
+		(bagSize == 0 ? result.secondsEndgame : bagSize <= 2 ? result.secondsPreendgame : result.secondsMidgame) += seconds;
 
 		// Only now, so that the player never sees the order of the bag.
 		LetterString order;
@@ -1110,7 +1116,8 @@ void TestHarness::arena(unsigned int firstSeed, unsigned int pairs)
 			ties += r.scoreA == r.scoreB;
 
 			UVcout << "ARENA seed " << seed << " first " << (seat ? "B" : "A") << " scoreA " << r.scoreA << " scoreB " << r.scoreB
-				   << " moves " << r.moves << " secondsA " << r.secondsA << " secondsB " << r.secondsB << " resyncs " << r.resyncs << endl;
+				   << " moves " << r.moves << " secondsA " << r.secondsA << " secondsB " << r.secondsB << " resyncs " << r.resyncs
+				   << " mid " << r.secondsMidgame << " pre " << r.secondsPreendgame << " end " << r.secondsEndgame << endl;
 		}
 
 		pairScoreSum += pairScore;
@@ -1132,6 +1139,91 @@ void TestHarness::arena(unsigned int firstSeed, unsigned int pairs)
 	UVcout << "ARENA SUMMARY pairs " << pairs << ", games " << games << ", A wins " << winsA << ", B wins " << winsB << ", ties " << ties
 		   << ", A score " << 100 * pairScoreSum / n << "% +- " << 100 * halfWidth(pairScoreSum, pairScoreSquares) << ", mean spread A-B "
 		   << pairSpreadSum / n << " +- " << halfWidth(pairSpreadSum, pairSpreadSquares) << endl;
+}
+
+void TestHarness::bench()
+{
+	ComputerPlayer *staticPlayer = checkPlayerName("Static Player");
+
+	vector<GamePosition> positions;
+	{
+		Quackle::PlayerList players;
+		players.push_back(Quackle::Player(MARK_UV("A"), Quackle::Player::ComputerPlayerType, 0));
+		players.push_back(Quackle::Player(MARK_UV("B"), Quackle::Player::ComputerPlayerType, 1));
+		Quackle::Game game;
+		game.setPlayers(players);
+		game.addPosition();
+		while (!game.currentPosition().gameOver())
+		{
+			positions.push_back(game.currentPosition());
+			game.haveComputerPlay(staticPlayer);
+		}
+	}
+
+	vector<const GamePosition *> midgame;
+	for (const auto &position : positions)
+		if (position.bag().size() > 2 * QUACKLE_PARAMETERS->rackSize() && !position.board().isEmpty())
+			midgame.push_back(&position);
+	if (midgame.empty())
+	{
+		UVcout << "BENCH no midgame position" << endl;
+		return;
+	}
+
+	UVcout << "BENCH positions " << positions.size() << ", midgame " << midgame.size() << endl;
+
+	auto report = [](const char *what, long long count, const char *unit, double seconds) {
+		UVcout << "BENCH " << what << ": " << count << " " << unit << " in " << seconds << " s, " << (seconds > 0 ? count / seconds : 0)
+			   << " " << unit << "/s" << endl;
+	};
+
+	const int rounds = 20;
+	QElapsedTimer timer;
+
+	timer.start();
+	long long calls = 0;
+	for (int round = 0; round < rounds; ++round)
+		for (const GamePosition *position : midgame)
+		{
+			GamePosition copy(*position);
+			copy.staticBestMove();
+			++calls;
+		}
+	report("staticBestMove", calls, "calls", timer.elapsed() / 1000.0);
+
+	timer.start();
+	calls = 0;
+	for (int round = 0; round < rounds; ++round)
+		for (const GamePosition *position : midgame)
+		{
+			GamePosition copy(*position);
+			copy.kibitz(15);
+			++calls;
+		}
+	report("kibitz(15)", calls, "calls", timer.elapsed() / 1000.0);
+
+	// One sim thread: the rate per core, which is what the arena's one-thread processes get.
+	const int candidates = 10;
+	const int iterations = 50;
+	const size_t simPositions = std::min<size_t>(midgame.size(), 4);
+	double simSeconds = 0;
+	long long playaheads = 0;
+	for (size_t i = 0; i < simPositions; ++i)
+	{
+		GamePosition position(*midgame[i * midgame.size() / simPositions]);
+		position.kibitz(candidates);
+
+		Simulator simulator;
+		simulator.setThreadCount(1);
+		simulator.setPosition(position);
+		simulator.setIncludedMoves(position.moves());
+
+		timer.start();
+		simulator.simulate(2, iterations);
+		simSeconds += timer.elapsed() / 1000.0;
+		playaheads += (long long)position.moves().size() * iterations;
+	}
+	report("2-ply playaheads", playaheads, "playaheads", simSeconds);
 }
 
 static void dumpGaddag(const GaddagNode *node, const LetterString &prefix)

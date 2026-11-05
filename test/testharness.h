@@ -103,11 +103,18 @@ public:
 		int moves = 0;
 		double secondsA = 0;
 		double secondsB = 0;
+		// both players' thinking time, by how many tiles were left in the bag
+		double secondsMidgame = 0;
+		double secondsPreendgame = 0;
+		double secondsEndgame = 0;
 		int resyncs = 0;
 	};
 
 	// Plays pairs of games between the two computer players.
 	void arena(unsigned int firstSeed, unsigned int pairs);
+
+	// Times move generation and simulation on positions from a seeded Static game.
+	void bench();
 	ArenaResult arenaGame(unsigned int seed, bool bMovesFirst);
 
 	void selfPlayGames(unsigned int seed, unsigned int reps, bool reports, bool playability);

@@ -1,5 +1,5 @@
-ARENA seed 3 first A scoreA 488 scoreB 332 moves 28 secondsA <N> secondsB <N> resyncs 0
-ARENA seed 3 first B scoreA 332 scoreB 488 moves 28 secondsA <N> secondsB <N> resyncs 0
-ARENA seed 4 first A scoreA 411 scoreB 328 moves 26 secondsA <N> secondsB <N> resyncs 0
-ARENA seed 4 first B scoreA 336 scoreB 414 moves 26 secondsA <N> secondsB <N> resyncs 0
+ARENA seed 3 first A scoreA 488 scoreB 332 moves 28 secondsA <N> secondsB <N> resyncs 0 mid <N> pre <N> end <N>
+ARENA seed 3 first B scoreA 332 scoreB 488 moves 28 secondsA <N> secondsB <N> resyncs 0 mid <N> pre <N> end <N>
+ARENA seed 4 first A scoreA 411 scoreB 328 moves 26 secondsA <N> secondsB <N> resyncs 0 mid <N> pre <N> end <N>
+ARENA seed 4 first B scoreA 336 scoreB 414 moves 26 secondsA <N> secondsB <N> resyncs 0 mid <N> pre <N> end <N>
 ARENA SUMMARY pairs 2, games 4, A wins 2, B wins 2, ties 0, A score 50% +- 0, mean spread A-B 1.25 +- 2.45

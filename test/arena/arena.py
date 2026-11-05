@@ -16,8 +16,8 @@ Examples:
         --config iterations=20,maxiterations=50,timelimit=0 \\
         --config2 iterations=40,maxiterations=100,timelimit=0
 
-Sims draw their random numbers per worker thread, so a game with simming
-players does not replay exactly from its seed; the pairing still holds.
+A player with a time limit does not replay exactly from its seed; pass
+timelimit=0 in its config for reproducible games.
 """
 
 import argparse
@@ -36,8 +36,9 @@ import run_regression as rr  # noqa: E402
 
 GAME_LINE = re.compile(
     r"^ARENA seed (\d+) first ([AB]) scoreA (-?\d+) scoreB (-?\d+) moves (\d+) "
-    r"secondsA ([\d.e+-]+) secondsB ([\d.e+-]+) resyncs (\d+)$")
-FIELDS = ["seed", "first", "scoreA", "scoreB", "moves", "secondsA", "secondsB", "resyncs"]
+    r"secondsA ([\d.e+-]+) secondsB ([\d.e+-]+) resyncs (\d+)"
+    r" mid ([\d.e+-]+) pre ([\d.e+-]+) end ([\d.e+-]+)$")
+FIELDS = ["seed", "first", "scoreA", "scoreB", "moves", "secondsA", "secondsB", "resyncs", "mid", "pre", "end"]
 
 
 def parse_games(text):
@@ -48,7 +49,7 @@ def parse_games(text):
             g = dict(zip(FIELDS, m.groups()))
             for k in ("seed", "scoreA", "scoreB", "moves", "resyncs"):
                 g[k] = int(g[k])
-            for k in ("secondsA", "secondsB"):
+            for k in ("secondsA", "secondsB", "mid", "pre", "end"):
                 g[k] = float(g[k])
             games.append(g)
     return games
@@ -99,6 +100,10 @@ def summarize(games):
         f"time/move   A {sum(g['secondsA'] for g in complete) / moves_a:.2f}s"
         f"   B {sum(g['secondsB'] for g in complete) / moves_a:.2f}s",
     ]
+    total = sum(g["mid"] + g["pre"] + g["end"] for g in complete) or 1
+    lines.append("time share  " + "   ".join(
+        f"{name} {100 * sum(g[key] for g in complete) / total:.0f}%"
+        for name, key in (("midgame", "mid"), ("preendgame", "pre"), ("endgame", "end"))))
     resyncs = sum(g["resyncs"] for g in complete)
     if resyncs:
         lines.append(f"warning: {resyncs} tile-sequence resyncs (pairs drifted apart)")
