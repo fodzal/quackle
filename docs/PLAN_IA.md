@@ -30,6 +30,7 @@ précédente ; les fusionner dans l'ordre). `docs/ai-plan` est à part, sur `mas
 | 9 | `test/bench` | 0.5 — `--mode bench` ; temps de l'arène par phase (milieu, preendgame, finale) | 26/26 ; golden arène ré-enregistré (format de ligne seulement) |
 | 10 | `perf/leaves` | V2 — superleaves en table de hachage ; cache par chevalet des valeurs de leave | 26/26, goldens inchangés ; playaheads ×1,29–1,33 |
 | 11 | `tools/win-table` | 5.3 — `--mode wintable` + `test/wintable/wintable.py` (ajustement logistique par nombre de tuiles inconnues) ; table `ods5` apprise sur 200 000 parties Static ; `test/arena/compare.py` (comparaison appariée de deux arènes) | 27/27 (nouveau golden `wintable-static`), autres goldens inchangés |
+| 12 | `ai/endgame-solver` | 4.1 (partiel) — solveur exact (alpha-bêta, approfondissement itératif, table de transposition, budget en générations) ; `endgame=N` ; `--mode endgame` | 28/28 (nouveau golden `endgame-solver`), autres goldens inchangés ; lignes prouvées rejouées sous les règles du moteur : 0 écart |
 
 Non traités pour l'instant : B9 (chrono vérifié entre candidats seulement), branches
 existantes `fix/endgame-passout-spread`, `fix/report-considered-move-endgame`,
@@ -45,6 +46,21 @@ utile, car les playouts de finale peuvent désormais contenir des passes).
 | 2026-11-05 | Static | Championship 132/330 (graine 5000) | 100 | **56,5 % ± 6,2** (Elo +45, +2..+90) | +6,7 ± 16,2 | B 19,8 |
 | 2026-11-05 | Championship 33/82 | Championship 132/330 (graine 6000, branche 10) | 100 | **54,0 % ± 6,6** (Elo +28, −18..+75) | +8,5 ± 13,9 | A 8,7 / B 19,7 |
 | 2026-11-05 | Static | Championship 132/330, table `ods5` (graine 5000, branche 11) | 100 | **57,0 % ± 6,1** (Elo +49) ; apparié : +0,5 ± 7,8 | +15,7 ± 14,4 ; apparié : +8,9 ± 16,6 | B 17,1 |
+
+**Finale (branche 12).** Le solveur exact, comparé à l'heuristique actuelle (`Endgame` :
+top 320 coups statiques, playouts gloutons, 160 réponses adverses) sur toutes les positions à
+sac vide de 30 parties Static en `ods5` : sur 69 positions, il en prouve 47 avec 20 000
+générations, et **dans les 47 l'heuristique joue un coup de même valeur exacte** (0 point
+perdu). Les positions non prouvées sont les premiers coups de finale avec un chevalet plein
+(7 contre 3 à 7 tuiles) : avec ≈ 2 ms par génération, le générateur actuel ne permet pas de
+les résoudre. Conséquences :
+- le solveur reste **désactivé par défaut** (`endgame=0`) : sans gain mesuré, il ne ferait
+  que coûter du temps ; il sert d'outil de mesure et d'étiquetage (corpus 0.6) ;
+- le défaut n° 3 (coups « à la Nigel ») n'apparaît pas en fin de finale ; s'il existe, c'est
+  au premier coup de finale ou en preendgame — le preendgame imbriqué utilise l'heuristique
+  avec 14/7 candidats seulement, ce qui en fait le prochain suspect (4.2) ;
+- un solveur sur les finales à chevalet plein exige un générateur bien plus rapide (V3),
+  ou une génération incrémentale (coups adverses mis à jour autour des tuiles posées).
 
 **Table de victoire `ods5` (branche 11).** Rejouée sur les mêmes graines que la référence,
 la table apprise ne change pas le résultat de façon mesurable (+0,5 point de score, +9 points
