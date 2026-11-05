@@ -42,6 +42,17 @@ utile, car les playouts de finale peuvent désormais contenir des passes).
 | 2026-11-05 | Static | Championship 132/330 | 8 | 75,0 % ± 18,5 | +19 ± 33 | B 12,7 |
 | 2026-11-05 | Championship 20/50 `crn=0` | idem `crn=1` | 64 | 53,5 % ± 7,4 | +7,4 ± 15,6 | ≈ 5,4 |
 | 2026-11-05 | Static | Championship 132/330 (graine 5000) | 100 | **56,5 % ± 6,2** (Elo +45, +2..+90) | +6,7 ± 16,2 | B 19,8 |
+| 2026-11-05 | Championship 33/82 | Championship 132/330 (graine 6000, branche 10) | 100 | **54,0 % ± 6,6** (Elo +28, −18..+75) | +8,5 ± 13,9 | A 8,7 / B 19,7 |
+
+**Budget ×4 (branche 10).** Quadrupler les itérations n'apporte pas de gain mesurable sur 100
+paires. Le temps se partage 67 % milieu de partie / 33 % preendgame / 0 % finale ; à budget ¼,
+le coup moyen prend encore 8,7 s, surtout à cause du preendgame (sans plafond avec
+`timelimit=0`). Conséquences :
+- la vitesse brute (phase 2) n'est pas le levier principal tant que l'évaluation en fin de
+  playout et la structure de recherche restent les mêmes ; on la garde, mais après les
+  chantiers qui changent *ce que* la simulation mesure ;
+- priorité aux données apprises (5.3 table de victoire, puis leaves), à l'horizon et à la
+  sélection des candidats (phase 3), et au preendgame (phase 4, coût et qualité).
 
 **Référence (branche 8).** À plein budget, Championship ne bat Static que de ≈ 45 Elo en
 français, pour 20 s par coup ; le 75 % sur 8 paires était du bruit. La simulation actuelle
