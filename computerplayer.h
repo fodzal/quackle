@@ -61,6 +61,9 @@ struct ComputerParameters
 	int preendgameCandidates = -1;
 	int nestedEndgamePlays = -1;
 	int nestedEndgameReplies = -1;
+
+	// Weight Preendgame's opponent racks by the likelihood of the opponent's last move, at inferenceBeta.
+	bool preendgameInference = false;
 };
 
 class ComputerDispatch

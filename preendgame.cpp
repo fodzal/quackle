@@ -23,6 +23,7 @@
 #include "bogowinplayer.h"
 #include "clock.h"
 #include "enumerator.h"
+#include "inferrer.h"
 #include "preendgame.h"
 #include "resolvent.h"
 
@@ -126,6 +127,9 @@ MoveList Preendgame::moves(int nmoves)
 		enumerator.enumeratePossible(&racks, currentPosition().bag());
 	else
 		enumerator.enumerate(&racks);
+
+	if (m_parameters.preendgameInference && currentPosition().nestedness() == 0)
+		Inferrer::weightOppoRacks(currentPosition(), m_parameters.inferenceBeta, &racks);
 
 	signalFractionDone(0);
 

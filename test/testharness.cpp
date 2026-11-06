@@ -139,6 +139,8 @@ static void applyPlayerConfig(ComputerPlayer *player, const QString &config, con
 			parameters.nestedEndgamePlays = (int)value;
 		else if (key == "nestedreplies")
 			parameters.nestedEndgameReplies = (int)value;
+		else if (key == "preinfer")
+			parameters.preendgameInference = value != 0;
 		else
 		{
 			UVcout << "Unknown config key " << QuackleIO::Util::qstringToString(key) << endl;
@@ -152,7 +154,8 @@ static void applyPlayerConfig(ComputerPlayer *player, const QString &config, con
 		   << parameters.plies << ", prune " << parameters.prunePoints << ", timelimit " << parameters.timeLimit << ", crn "
 		   << parameters.commonRandomNumbers << ", endgame " << parameters.endgameGenerations << ", infer " << parameters.inferenceSamples
 		   << ", inferbeta " << parameters.inferenceBeta << ", precandidates " << parameters.preendgameCandidates << ", nestedplays "
-		   << parameters.nestedEndgamePlays << ", nestedreplies " << parameters.nestedEndgameReplies << endl;
+		   << parameters.nestedEndgamePlays << ", nestedreplies " << parameters.nestedEndgameReplies << ", preinfer "
+		   << parameters.preendgameInference << endl;
 }
 
 TestHarness::TestHarness()
@@ -177,7 +180,9 @@ const char *usage = "Optional arguments:\n"
 					"         0 = playout heuristic), infer (racks sampled to infer the\n"
 					"         opponent's leave, 0 = off), inferbeta, precandidates (preendgame\n"
 					"         candidates), nestedplays and nestedreplies (Endgame's breadth for\n"
-					"         the opponent's answers in the preendgame). Negative = default.\n"
+					"         the opponent's answers in the preendgame), preinfer (1 = weight the\n"
+					"         preendgame's opponent racks by their last move, at inferbeta).\n"
+					"         Negative = default.\n"
 					"--config2=key=value,...; the same for the second selfplay player.\n"
 					"--mode=\n"
 					"       'positions' (default) runs computer player all positions.\n"
@@ -1502,6 +1507,9 @@ void TestHarness::inference(unsigned int games)
 	double bits = 0;
 	double trueMassPosterior = 0;
 	double trueMassPrior = 0;
+	int preendgames = 0;
+	double preendgamePosterior = 0;
+	double preendgamePrior = 0;
 
 	// Expected count of each letter in the leave, as a fraction of the leave.
 	auto marginals = [](const WeightedRacks &leaves) {
@@ -1545,6 +1553,23 @@ void TestHarness::inference(unsigned int games)
 			if (after.gameOver() || after.bag().empty())
 				continue;
 
+			if (after.bag().size() <= 2)
+			{
+				const LetterString moverTiles = String::alphabetize(after.nextPlayer()->rack().tiles());
+				ProbableRackList racks;
+				Bag unseen = after.unseenBag();
+				Enumerator(unseen).enumerate(&racks);
+				ProbableRackList weighted = racks;
+				Inferrer::weightOppoRacks(after, beta, &weighted);
+				for (size_t i = 0; i < racks.size(); ++i)
+					if (String::alphabetize(racks[i].rack.tiles()) == moverTiles)
+					{
+						preendgamePrior += racks[i].probability;
+						preendgamePosterior += weighted[i].probability;
+					}
+				++preendgames;
+			}
+
 			const WeightedRacks posterior = Inferrer::oppoLeaves(after, samples, beta);
 			if (posterior.empty())
 				continue;
@@ -1568,6 +1593,9 @@ void TestHarness::inference(unsigned int games)
 	UVcout << "INFERENCE SUMMARY games " << games << ", samples " << samples << ", beta " << beta << ", positions " << positions
 		   << ", bits per leave tile " << (tiles ? bits / tiles : 0) << ", mass on the true leave " << trueMassPosterior / n << " (prior "
 		   << trueMassPrior / n << ")" << endl;
+	UVcout << "INFERENCE PREENDGAME positions " << preendgames << ", mass on the true rack "
+		   << (preendgames ? preendgamePosterior / preendgames : 0) << " (prior " << (preendgames ? preendgamePrior / preendgames : 0)
+		   << ")" << endl;
 }
 
 static void dumpGaddag(const GaddagNode *node, const LetterString &prefix)

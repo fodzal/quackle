@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "enumerator.h"
 #include "rack.h"
 
 namespace Quackle
@@ -39,6 +40,9 @@ namespace Inferrer
 // Empty when the last move tells nothing, such as a pass, an exchange or a play of a whole rack.
 WeightedRacks oppoLeaves(const GamePosition &position, int samples, double beta);
 
+// Multiplies the probability of each of the opponent's possible racks by the mean likelihood of their last
+// move over the leaves the rack could hold, then rescales to the original total.
+void weightOppoRacks(const GamePosition &position, double beta, ProbableRackList *racks);
 }
 
 }

@@ -30,24 +30,66 @@
 
 using namespace Quackle;
 
+namespace
+{
+
+class LastMove
+{
+public:
+	explicit LastMove(const GamePosition &position)
+		: m_last(position.previousMove()), m_before(position)
+	{
+		m_informative = position.players().size() == 2 && m_last.action == Move::Place && !m_last.isChallengedPhoney();
+		if (!m_informative)
+			return;
+
+		m_used = m_last.usedTiles();
+		m_kept = QUACKLE_PARAMETERS->rackSize() - (int)m_used.length();
+		m_informative = m_kept > 0;
+		if (!m_informative)
+			return;
+
+		Board board(m_before.board());
+		board.unmakeMove(m_last);
+		m_before.setBoard(board);
+		m_before.ensureBoardIsPreparedForAnalysis();
+	}
+
+	bool informative() const { return m_informative; }
+	int kept() const { return m_kept; }
+	const Board &boardBefore() const { return m_before.board(); }
+
+	double likelihood(const LetterString &leave, double beta)
+	{
+		LetterString rack = m_used;
+		rack += leave;
+		m_before.setCurrentPlayerRack(Rack(rack), /* adjust bag */ false);
+		const double best = m_before.staticBestMove().equity;
+		const double played = QUACKLE_EVALUATOR->equity(m_before, m_last);
+		return std::exp(beta * std::min(0.0, played - best));
+	}
+
+private:
+	const Move m_last;
+	GamePosition m_before;
+	LetterString m_used;
+	int m_kept = 0;
+	bool m_informative = false;
+};
+
+}
+
 WeightedRacks Inferrer::oppoLeaves(const GamePosition &position, int samples, double beta)
 {
-	const Move &last = position.previousMove();
-	if (samples <= 0 || position.players().size() != 2 || last.action != Move::Place || last.isChallengedPhoney())
+	if (samples <= 0)
 		return WeightedRacks();
-
-	const LetterString used = last.usedTiles();
-	const int kept = QUACKLE_PARAMETERS->rackSize() - (int)used.length();
+	LastMove last(position);
+	const int kept = last.kept();
 	const LongLetterString pool = position.unseenBag().tiles();
-	if (kept <= 0 || (int)pool.length() < kept)
+	if (!last.informative() || (int)pool.length() < kept)
 		return WeightedRacks();
 
-	GamePosition before(position);
-	Board board(before.board());
-	board.unmakeMove(last);
-	before.setBoard(board);
-	before.ensureBoardIsPreparedForAnalysis();
-
+	const Board &board = last.boardBefore();
 	// Seeded from the position, so that a position always gets the same answer.
 	uint64_t seed = 14695981039346656037ull;
 	for (int row = 0; row < board.height(); ++row)
@@ -77,13 +119,7 @@ WeightedRacks Inferrer::oppoLeaves(const GamePosition &position, int samples, do
 			LetterString leave;
 			for (const char c : key)
 				leave += (Letter)c;
-			LetterString rack = used;
-			rack += leave;
-
-			before.setCurrentPlayerRack(Rack(rack), /* adjust bag */ false);
-			const double best = before.staticBestMove().equity;
-			const double played = QUACKLE_EVALUATOR->equity(before, last);
-			found = leaves.emplace(key, Leave { Rack(leave), std::exp(beta * std::min(0.0, played - best)), 0 }).first;
+			found = leaves.emplace(key, Leave { Rack(leave), last.likelihood(leave, beta), 0 }).first;
 		}
 		++found->second.draws;
 	}
@@ -92,4 +128,58 @@ WeightedRacks Inferrer::oppoLeaves(const GamePosition &position, int samples, do
 	for (const auto &entry : leaves)
 		ret.push_back({ entry.second.rack, entry.second.draws * entry.second.likelihood });
 	return ret;
+}
+
+void Inferrer::weightOppoRacks(const GamePosition &position, double beta, ProbableRackList *racks)
+{
+	LastMove last(position);
+	if (!last.informative())
+		return;
+	const int kept = last.kept();
+
+	std::map<std::string, double> likelihoods;
+	double before = 0;
+	double after = 0;
+	for (ProbableRack &probable : *racks)
+	{
+		const LetterString tiles = probable.rack.tiles();
+		const int size = (int)tiles.length();
+		before += probable.probability;
+		if (size < kept)
+		{
+			after += probable.probability;
+			continue;
+		}
+
+		std::vector<bool> chosen(size, false);
+		std::fill(chosen.begin(), chosen.begin() + kept, true);
+		double sum = 0;
+		int count = 0;
+		do
+		{
+			std::string key;
+			for (int i = 0; i < size; ++i)
+				if (chosen[i])
+					key += (char)tiles[i];
+			std::sort(key.begin(), key.end());
+
+			auto found = likelihoods.find(key);
+			if (found == likelihoods.end())
+			{
+				LetterString leave;
+				for (const char c : key)
+					leave += (Letter)c;
+				found = likelihoods.emplace(key, last.likelihood(leave, beta)).first;
+			}
+			sum += found->second;
+			++count;
+		} while (std::prev_permutation(chosen.begin(), chosen.end()));
+
+		probable.probability *= sum / count;
+		after += probable.probability;
+	}
+
+	if (after > 0)
+		for (ProbableRack &probable : *racks)
+			probable.probability *= before / after;
 }
