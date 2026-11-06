@@ -96,6 +96,7 @@ public:
 
 	// Return the best move
 	Move solve(int nestedness);
+	void setNestedPlayNumbers(int plays, int replies);
 	void reallyPlayOut(Move &move, int nestedness);
 
 	double disappoint(EndgameMove &hope, double bestPessimistic);

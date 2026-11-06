@@ -48,7 +48,7 @@ int Preendgame::maximumTilesInBagToEngage()
 
 int Preendgame::calculateInitialCandidates() const
 {
-	int ret = m_initialCandidates;
+	int ret = m_parameters.preendgameCandidates > 0 ? m_parameters.preendgameCandidates : m_initialCandidates;
 	if (currentPosition().nestedness() > 0)
 		ret = static_cast<int>(ceil(ret / pow((double)m_nestednessDenominatorBase, (int)currentPosition().nestedness())));
 	return ret;
@@ -146,6 +146,7 @@ MoveList Preendgame::moves(int nmoves)
 
 	GamePosition tempPosition;
 	Resolvent resolvent;
+	resolvent.setParameters(m_parameters);
 	resolvent.setThreadCount(threadCount(), threadQoS());
 
 	int j = 0;

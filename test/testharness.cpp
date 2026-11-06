@@ -133,6 +133,12 @@ static void applyPlayerConfig(ComputerPlayer *player, const QString &config, con
 			parameters.inferenceSamples = (int)value;
 		else if (key == "inferbeta")
 			parameters.inferenceBeta = value;
+		else if (key == "precandidates")
+			parameters.preendgameCandidates = (int)value;
+		else if (key == "nestedplays")
+			parameters.nestedEndgamePlays = (int)value;
+		else if (key == "nestedreplies")
+			parameters.nestedEndgameReplies = (int)value;
 		else
 		{
 			UVcout << "Unknown config key " << QuackleIO::Util::qstringToString(key) << endl;
@@ -145,7 +151,8 @@ static void applyPlayerConfig(ComputerPlayer *player, const QString &config, con
 		   << ", maxiterations " << parameters.maxIterations << ", candidates " << parameters.additionalCandidates << ", plies "
 		   << parameters.plies << ", prune " << parameters.prunePoints << ", timelimit " << parameters.timeLimit << ", crn "
 		   << parameters.commonRandomNumbers << ", endgame " << parameters.endgameGenerations << ", infer " << parameters.inferenceSamples
-		   << ", inferbeta " << parameters.inferenceBeta << endl;
+		   << ", inferbeta " << parameters.inferenceBeta << ", precandidates " << parameters.preendgameCandidates << ", nestedplays "
+		   << parameters.nestedEndgamePlays << ", nestedreplies " << parameters.nestedEndgameReplies << endl;
 }
 
 TestHarness::TestHarness()
@@ -168,7 +175,9 @@ const char *usage = "Optional arguments:\n"
 					"         timelimit (0 = bounded by iterations only), crn (0 = independent\n"
 					"         draws per candidate), endgame (solver budget in move generations,\n"
 					"         0 = playout heuristic), infer (racks sampled to infer the\n"
-					"         opponent's leave, 0 = off), inferbeta. Negative = default.\n"
+					"         opponent's leave, 0 = off), inferbeta, precandidates (preendgame\n"
+					"         candidates), nestedplays and nestedreplies (Endgame's breadth for\n"
+					"         the opponent's answers in the preendgame). Negative = default.\n"
 					"--config2=key=value,...; the same for the second selfplay player.\n"
 					"--mode=\n"
 					"       'positions' (default) runs computer player all positions.\n"

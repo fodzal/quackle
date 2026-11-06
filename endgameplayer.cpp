@@ -70,6 +70,8 @@ MoveList EndgamePlayer::moves(int nmoves)
 		}
 	}
 
+	if (m_parameters.nestedEndgamePlays > 0 && m_parameters.nestedEndgameReplies > 0)
+		m_endgame.setNestedPlayNumbers(m_parameters.nestedEndgamePlays, m_parameters.nestedEndgameReplies);
 	m_endgame.setPosition(currentPosition());
 
 	if (nmoves > 1)

@@ -260,6 +260,12 @@ double Endgame::disappoint(EndgameMove &hope, double bestPessimistic)
 	return newOptimistic;
 }
 
+void Endgame::setNestedPlayNumbers(int plays, int replies)
+{
+	m_nestedInitialPlayNumber = plays;
+	m_nestedDisappointPlayNumber = replies;
+}
+
 Move Endgame::solve(int /* nestedness */)
 {
 	Move move = choose();
@@ -432,6 +438,7 @@ void Endgame::reallyPlayOut(Move &chosenMove, int /* nestedness */)
 			else
 			{
 				Endgame quickieEndgame;
+				quickieEndgame.setNestedPlayNumbers(m_nestedInitialPlayNumber, m_nestedDisappointPlayNumber);
 				quickieEndgame.setPosition(playoutGame.currentPosition());
 				move = quickieEndgame.choose();
 			}

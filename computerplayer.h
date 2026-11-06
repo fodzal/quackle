@@ -56,6 +56,11 @@ struct ComputerParameters
 	int inferenceSamples = 0;
 	// Likelihood of a move falls by a factor e for every 1/inferenceBeta points of equity it gives up.
 	double inferenceBeta = 0.5;
+
+	// Preendgame's candidate moves, and the moves and replies Endgame tries for the opponent's answer to each.
+	int preendgameCandidates = -1;
+	int nestedEndgamePlays = -1;
+	int nestedEndgameReplies = -1;
 };
 
 class ComputerDispatch
