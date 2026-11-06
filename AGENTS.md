@@ -15,7 +15,8 @@ Other top-level directories (`encodeleaves/`, `makegaddag/`, `makeminidawg/`, `g
 `docs/ARCHITECTURE.md` maps the engine (move generation, evaluation, players, simulator,
 endgame, reports); `docs/ROADMAP.md` lists known bugs and AI-improvement work;
 `docs/ANALYSE_IA.md` is the detailed AI diagnosis and improvement catalog; `docs/PLAN_IA.md`
-orders that work into phases and PRs. All are in French. Read them before working on the AI and keep them up to date.
+orders that work into phases and PRs; `docs/BILAN_IA.md` summarizes what was done, what the
+measurements showed and what could come next. All are in French. Read them before working on the AI and keep them up to date.
 
 ## Build status
 

@@ -1,7 +1,8 @@
 # Plan de travail — IA de Scrabble classique (2 joueurs)
 
 Suite de `ANALYSE_IA.md` (diagnostic, identifiants B*, V*, A*, F*). Ici : l'ordre, le contenu
-de chaque PR et le critère qui dit qu'elle est finie.
+de chaque PR et le critère qui dit qu'elle est finie. `BILAN_IA.md` résume l'acquis et les
+suites possibles.
 
 Règles communes à toutes les PR :
 - une branche par PR, PR vers `master` du fork ;
