@@ -262,6 +262,13 @@ double Endgame::disappoint(EndgameMove &hope, double bestPessimistic)
 
 Move Endgame::solve(int /* nestedness */)
 {
+	Move move = choose();
+	reallyPlayOut(move, 0);
+	return move;
+}
+
+Move Endgame::choose()
+{
 #ifdef DEBUG_ENDGAME
 	UVcout << "Endgame::solve() called with position:" << endl;
 #endif
@@ -395,11 +402,10 @@ Move Endgame::solve(int /* nestedness */)
 	}
 
 found_best_pessimistic_move:
-	reallyPlayOut(bestPessMove.move, 0);
 	return bestPessMove.move;
 }
 
-void Endgame::reallyPlayOut(Move &chosenMove, int nestedness)
+void Endgame::reallyPlayOut(Move &chosenMove, int /* nestedness */)
 {
 	const int startPlayerId = m_originalGame.currentPosition().currentPlayer().id();
 	const size_t numberOfPlayers = m_originalGame.currentPosition().players().size();
@@ -427,7 +433,7 @@ void Endgame::reallyPlayOut(Move &chosenMove, int nestedness)
 			{
 				Endgame quickieEndgame;
 				quickieEndgame.setPosition(playoutGame.currentPosition());
-				move = quickieEndgame.solve(nestedness);
+				move = quickieEndgame.choose();
 			}
 
 #ifdef DEBUG_ENDGAME

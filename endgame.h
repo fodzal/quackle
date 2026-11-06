@@ -101,6 +101,8 @@ public:
 	double disappoint(EndgameMove &hope, double bestPessimistic);
 
 protected:
+	Move choose();
+
 	void writeLogHeader();
 	void writeLogFooter();
 
