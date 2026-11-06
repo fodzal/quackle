@@ -1,6 +1,6 @@
 # Bilan — IA de Scrabble classique (2 joueurs)
 
-Récapitulatif de ce qui a été fait (2026-11-05 → 2026-11-06), de ce que les mesures ont
+Récapitulatif de ce qui a été fait (2026-11-05 → 2026-11-07), de ce que les mesures ont
 appris, et des étapes possibles ensuite. Le détail est dans les autres documents :
 - `ANALYSE_IA.md` : le diagnostic et les identifiants (B\*, V\*, A\*, F\*) ;
 - `PLAN_IA.md` : le plan par phases, le tableau d'avancement et toutes les mesures d'arène.
@@ -44,7 +44,7 @@ Sur ce poste, cela donne la précision suivante :
 | Partie entière | 200 | 2,4 h | ±4,25 points de score |
 | Preendgame | 400 | 35 min | ±1,3 point de score, ±0,6 à 1,5 point d'écart par partie |
 
-## 3. Les 17 branches
+## 3. Les 18 branches
 
 Elles sont empilées dans cet ordre, toutes poussées. `docs/ai-plan` (les documents) part
 directement de `master`. Les textes des PR sont prêts, chacun avec sa base et ses vérifications.
@@ -68,12 +68,14 @@ directement de `master`. Les textes des PR sont prêts, chacun avec sa base et s
 | 15 | `perf/endgame-playout` | vitesse | les playouts de `Endgame` ne coûtent plus un temps exponentiel : −8 % par coup |
 | 16 | `test/arena-start` | outil | arène à partir du preendgame (`--start N`) |
 | 17 | `ai/preendgame` | bug + IA | le preendgame imbriqué ignorait `timelimit=0` (paramètres non transmis) ; réglages `precandidates`, `nestedplays`, `nestedreplies` |
+| 18 | `ai/preendgame-inference` | IA | le preendgame pondère les chevalets adverses par la vraisemblance du dernier coup adverse (`preinfer=1`, désactivé par défaut) ; mesure de précision en preendgame |
 
 Toutes les branches passent la régression, sous ASan à partir de la branche 8. Trois branches
 ont ré-enregistré des goldens ; la PR concernée l'annonce et l'explique à chaque fois :
 - branche 1 : ligne de bilan ajoutée ;
 - branche 9 : nouveau format de ligne de l'arène ;
-- branche 15 : décalage de la suite aléatoire, pas de changement de jeu.
+- branche 15 : décalage de la suite aléatoire, pas de changement de jeu ;
+- branche 18 : ligne de mesure ajoutée au golden `inference`.
 
 ## 4. Ce que les mesures ont appris
 
@@ -91,6 +93,7 @@ ont ré-enregistré des goldens ; la PR concernée l'annonce et l'explique à ch
 | Championship contre Static, à partir de 2 tuiles dans le sac | +6,4 ± 1,5 points par partie | le preendgame actuel rapporte déjà |
 | Preendgame à 60 candidats contre 30 | 50,12 % ± 0,55 | **défaut n° 3 absent en preendgame** |
 | Finale imbriquée 40/20 contre 14/7 | 49,75 % ± 0,78 | neutre |
+| Inférence en preendgame (`preinfer=1`, β = 1,5) | 50,31 % ± 0,50 ; masse sur le vrai chevalet 13,3 % → 18,1 % | **défaut n° 2 : neutre aussi là où chaque point compte** |
 
 ### 4.2 Leçons
 
@@ -98,7 +101,7 @@ ont ré-enregistré des goldens ; la PR concernée l'annonce et l'explique à ch
    - élargir ou approfondir la recherche (plus de candidats, plus de plis, plus d'itérations,
      un preendgame plus large) ne rapporte rien de mesurable ;
    - l'IA trouve déjà les coups courts en fin de partie ;
-   - l'inférence, utilisée en milieu de partie, ne rapporte rien non plus.
+   - l'inférence ne rapporte rien non plus, ni en milieu de partie ni en preendgame.
 2. **La vitesse seule n'est pas le levier.** Le moteur est ×1,3 à ×2 plus rapide, mais un
    budget ×4 n'apporte rien. Ce qui limite la simulation, c'est ce qu'elle mesure :
    - l'évaluation en fin de playout ;
@@ -127,13 +130,15 @@ ont ré-enregistré des goldens ; la PR concernée l'annonce et l'explique à ch
 
 Classées par rapport attendu entre gain et coût, d'après ce que les mesures ont appris.
 
-### En cours : l'inférence (phase 6)
+### Inférence (phase 6) — mise en attente
 
-- **6.a Inférence dans le preendgame.** Le preendgame énumère les chevalets adverses possibles
-  (8 avec 1 tuile dans le sac, 36 avec 2) et leur donne à tous le même poids. Les pondérer par
-  la vraisemblance du dernier coup adverse revient à appliquer l'inférence là où chaque point
-  se joue et où l'information pèse le plus : il reste 7 tuiles adverses à deviner sur 8 ou 9.
-  C'est peu coûteux et cela se mesure à ±0,6 point avec l'arène preendgame.
+- **6.a Inférence dans le preendgame** : faite (branche 18), neutre. Le vrai chevalet passe de
+  13,3 % à 18 % de la masse, ce qui ne change pas assez de décisions.
+
+Les autres pistes ne sont plus prioritaires : l'inférence, avec l'information qu'elle extrait
+aujourd'hui, ne rapporte rien ni en milieu de partie ni en preendgame. Elles ne vaudraient
+d'être reprises que si une version extrayait beaucoup plus d'information, ou face à un
+adversaire humain, moins prévisible que Static.
 - **6.b Calibration de β** (6.2) sur le self-play, et plus tard sur des parties humaines `.gcg`.
 - **6.c Cumul sur plusieurs tours** (6.3) : un reliquat gardé deux tours de suite renseigne
   davantage qu'un seul coup.
