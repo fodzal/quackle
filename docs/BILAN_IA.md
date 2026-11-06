@@ -3,7 +3,8 @@
 Récapitulatif de ce qui a été fait (2026-11-05 → 2026-11-07), de ce que les mesures ont
 appris, et des étapes possibles ensuite. Le détail est dans les autres documents :
 - `ANALYSE_IA.md` : le diagnostic et les identifiants (B\*, V\*, A\*, F\*) ;
-- `PLAN_IA.md` : le plan par phases, le tableau d'avancement et toutes les mesures d'arène.
+- `PLAN_IA.md` : le plan par phases, le tableau d'avancement et toutes les mesures d'arène ;
+- `PR_IA.md` : chaque PR en quelques phrases, son effet sur le jeu et sur le temps de réflexion.
 
 ## 1. Point de départ
 
