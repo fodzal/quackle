@@ -124,6 +124,7 @@ def main():
     ap.add_argument("--config")
     ap.add_argument("--config2")
     ap.add_argument("--out", help="CSV file for per-game results")
+    ap.add_argument("--start", type=int, help="Static Player plays both seats until at most START tiles are in the bag")
     args = ap.parse_args()
 
     binary = rr.resolve_binary(args.bin)
@@ -150,6 +151,8 @@ def main():
             cmd.append(f"--config={args.config}")
         if args.config2:
             cmd.append(f"--config2={args.config2}")
+        if args.start is not None:
+            cmd.append(f"--arenastart={args.start}")
         log = work_root / f"job{j}.log"
         procs.append((subprocess.Popen(cmd, cwd=run_dir, stdout=open(log, "w"), stderr=subprocess.STDOUT,
                                        env=rr.child_env(binary)), log))
@@ -158,6 +161,8 @@ def main():
     print(f"arena: {args.pairs} pairs, {jobs} processes, {args.lexicon}/{args.alphabet}")
     print(f"  A = {args.computer} [{args.config or 'defaults'}]")
     print(f"  B = {args.computer2} [{args.config2 or 'defaults'}]")
+    if args.start is not None:
+        print(f"  from the first position with at most {args.start} tiles in the bag, reached by Static Player")
     print(f"  logs in {work_root}")
 
     start = time.time()

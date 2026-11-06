@@ -186,6 +186,9 @@ const char *usage = "Optional arguments:\n"
 					"       'arena' plays --repetitions pairs of games between --computer\n"
 					"               and --computer2. Both games of a pair draw the same tile\n"
 					"               sequence, with seats swapped; pair k uses seed --seed + k.\n"
+					"               With --arenastart=N, Static Player plays both seats until\n"
+					"               at most N tiles are left in the bag, so both games of a pair\n"
+					"               hand the players the same position.\n"
 					"       'bench' times move generation and simulation.\n"
 					"       'wintable' plays --repetitions games of --computer against --computer2\n"
 					"                  and counts, for the player on turn, wins by tiles unseen\n"
@@ -227,6 +230,7 @@ void TestHarness::executeFromArguments()
 	QString repString;
 	QString threadString;
 	QString qosString;
+	QString arenaStartString;
 	bool build;
 	QString letters;
 	bool help;
@@ -246,6 +250,7 @@ void TestHarness::executeFromArguments()
 	opts.addOption('t', "letters", &letters);
 	opts.addOption('n', "threads", &threadString);
 	opts.addOption('q', "qos", &qosString);
+	opts.addOption('b', "arenastart", &arenaStartString);
 	opts.addRepeatableOption("position", &m_positions);
 
 	opts.addSwitch("report", &report);
@@ -276,7 +281,8 @@ void TestHarness::executeFromArguments()
 	        seed = seedString.toUInt();
 	if (!repString.isNull())
 	        reps = repString.toUInt();
-
+	if (!arenaStartString.isNull())
+		m_arenaStartBag = arenaStartString.toInt();
 
 	m_computerPlayerToTest = checkPlayerName(computer);
 	// Its own instance, so the two players can be configured differently.
@@ -1068,20 +1074,26 @@ TestHarness::ArenaResult TestHarness::arenaGame(unsigned int seed, bool bMovesFi
 		game.currentPosition().setPlayerRack(id, Rack(rack), /* adjust bag */ true);
 	}
 
+	ComputerPlayer *opener = m_arenaStartBag >= 0 ? checkPlayerName("Static Player") : nullptr;
+
 	const int maxMoves = 1000;
 	for (result.moves = 0; result.moves < maxMoves && !game.currentPosition().gameOver(); ++result.moves)
 	{
 		const int moverId = game.currentPosition().currentPlayer().id();
-		ComputerPlayer *player = moverId == aId ? m_computerPlayerToTest : m_computerPlayer2ToTest;
+		const int bagSize = game.currentPosition().bag().size();
+		const bool opening = opener && bagSize > m_arenaStartBag;
+		ComputerPlayer *player = opening ? opener : moverId == aId ? m_computerPlayerToTest : m_computerPlayer2ToTest;
 
 		QElapsedTimer timer;
 		timer.start();
 		player->setPosition(game.currentPosition());
 		const Move move = player->move();
 		const double seconds = timer.elapsed() / 1000.0;
-		(moverId == aId ? result.secondsA : result.secondsB) += seconds;
-		const int bagSize = game.currentPosition().bag().size();
-		(bagSize == 0 ? result.secondsEndgame : bagSize <= 2 ? result.secondsPreendgame : result.secondsMidgame) += seconds;
+		if (!opening)
+		{
+			(moverId == aId ? result.secondsA : result.secondsB) += seconds;
+			(bagSize == 0 ? result.secondsEndgame : bagSize <= 2 ? result.secondsPreendgame : result.secondsMidgame) += seconds;
+		}
 
 		// Only now, so that the player never sees the order of the bag.
 		LetterString order;
