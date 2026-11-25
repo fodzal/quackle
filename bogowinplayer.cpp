@@ -32,6 +32,49 @@
 using namespace Quackle;
 using namespace std;
 
+namespace
+{
+// The simulator only polls its dispatch between chunks, so this bounds the overrun to one chunk.
+class DeadlineDispatch : public ComputerDispatch
+{
+public:
+	DeadlineDispatch(ComputerDispatch *shadow, const Stopwatch &stopwatch, int seconds)
+		: m_shadow(shadow), m_stopwatch(stopwatch), m_seconds(seconds)
+	{
+	}
+
+	bool shouldAbort() override { return (m_shadow && m_shadow->shouldAbort()) || m_stopwatch.exceeded(m_seconds); }
+
+	void signalFractionDone(double fractionDone) override
+	{
+		if (m_shadow)
+			m_shadow->signalFractionDone(fractionDone);
+	}
+
+private:
+	ComputerDispatch *m_shadow;
+	const Stopwatch &m_stopwatch;
+	int m_seconds;
+};
+
+class ScopedSimulatorDispatch
+{
+public:
+	ScopedSimulatorDispatch(Simulator &simulator, ComputerDispatch *dispatch)
+		: m_simulator(simulator), m_previous(simulator.dispatch())
+	{
+		if (dispatch)
+			m_simulator.setDispatch(dispatch);
+	}
+
+	~ScopedSimulatorDispatch() { m_simulator.setDispatch(m_previous); }
+
+private:
+	Simulator &m_simulator;
+	ComputerDispatch *m_previous;
+};
+}
+
 SmartBogowin::SmartBogowin()
 {
 	m_name = MARK_UV("Smart Bogowin");
@@ -103,6 +146,9 @@ MoveList SmartBogowin::moves(int nmoves)
 		m_simulator.setOppoLeaves(Inferrer::oppoLeaves(currentPosition(), m_parameters.inferenceSamples, m_parameters.inferenceBeta));
 	else
 		m_simulator.setOppoLeaves(WeightedRacks());
+
+	DeadlineDispatch deadline(m_dispatch, stopwatch, m_parameters.secondsPerTurn);
+	ScopedSimulatorDispatch scopedDispatch(m_simulator, m_parameters.timeLimit ? &deadline : nullptr);
 
 	const double zerothPrune = m_parameters.prunePoints >= 0 ? m_parameters.prunePoints : 33;
 	int plies = m_parameters.plies >= 0 ? m_parameters.plies : 2;
