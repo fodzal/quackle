@@ -387,16 +387,16 @@ Quackle Computer: Turn 10
    A B C D E F G H I J K L M N O      David Boys               AACGLUX   377 
    ------------------------------  -> Quackle Computer         CFLRSTV   327 
  1|Q U O I N     B A R E D   E =| --Speedy Player's choices (your play: 1)-----
- 2|  -     A "       "   E   R  |  26.0*L11 V(ID)S      8  CFLRT
- 3|    W R I N G E D     T - G  |  44.0 14M T(I)S       15 CFLRV
- 4|'     - V     '       A   A '|  47.0 14L SR(I)       10 CFLTV
- 5|        E         J O I N T  |  48.0 O6  (REISSUER)S 11 CFLRTV
- 6|  "     t "       "   N   E R|  49.0 M12 (NO)S       5  CFLRTV
- 7|    ' B E   ' M E O U S '   E|  61.0 M11 S(NO)T      6  CFLRV
- 8|=     A     T O L D   '     I|  62.0 L12 (ID)S       4  CFLRTV
- 9|  P I T H E A d '       '   S|  62.0 L11 F(ID)S      8  CLRTV
-10|  Y   F O H N     "       " S|  62.0 L11 R(ID)S      5  CFLTV
-11|T E P O Y           -       U|  70.0 L11 L(ID)S      5  CFRTV
+ 2|  -     A "       "   E   R  | best *L11 V(ID)S      8  CFLRT
+ 3|    W R I N G E D     T - G  |  18.0 14M T(I)S       15 CFLRV
+ 4|'     - V     '       A   A '|  21.0 14L SR(I)       10 CFLTV
+ 5|        E         J O I N T  |  22.0 O6  (REISSUER)S 11 CFLRTV
+ 6|  "     t "       "   N   E R|  23.0 M12 (NO)S       5  CFLRTV
+ 7|    ' B E   ' M E O U S '   E|  35.0 M11 S(NO)T      6  CFLRV
+ 8|=     A     T O L D   '     I|  36.0 L12 (ID)S       4  CFLRTV
+ 9|  P I T H E A d '       '   S|  36.0 L11 F(ID)S      8  CLRTV
+10|  Y   F O H N     "       " S|  36.0 L11 R(ID)S      5  CFLTV
+11|T E P O Y           -       U|  44.0 L11 L(ID)S      5  CFRTV
 12|' M   W       '     Z I N   E| --Tracking-----------------------------------
 13|  I - L     '   '     D O O R| AACGLUX  7
 14|K A       "       "       I  |
@@ -427,16 +427,16 @@ Quackle Computer: Turn 11
    A B C D E F G H I J K L M N O      David Boys               LUXA      384 
    ------------------------------  -> Quackle Computer         CFLRT     335 
  1|Q U O I N     B A R E D   E =| --Speedy Player's choices (your play: 1)-----
- 2|  -     A "       "   E   R  |  30.0*1N  (E)F     15 CLRT
- 3|    W R I N G E D     T - G  |  35.0 14A (KA)F    10 CLRT
- 4|'     - V     '       A   A '|  35.0 I6  C(EL)    5  FLRT
- 5|  C A G E         J O I N T  |  35.0 H1  (B)L(E)T 7  CFR
- 6|  "     t "       "   N   E R|  36.0 5B  (CAGE)R  8  CFLT
- 7|    ' B E   ' M E O U S '   E|  36.0 H3  (E)FT    10 CLR
- 8|=     A     T O L D   '     I|  36.0 1N  (E)R     6  CFLT
- 9|  P I T H E A d '       '   S|  36.0 1N  (E)L     6  CFRT
-10|  Y   F O H N     "       " S|  37.0 K1  (E)F     10 CLRT
-11|T E P O Y           - V     U|  38.0 1N  (E)T     6  CFLR
+ 2|  -     A "       "   E   R  | best *1N  (E)F     15 CLRT
+ 3|    W R I N G E D     T - G  |  5.00 14A (KA)F    10 CLRT
+ 4|'     - V     '       A   A '|  5.00 I6  C(EL)    5  FLRT
+ 5|  C A G E         J O I N T  |  5.00 H1  (B)L(E)T 7  CFR
+ 6|  "     t "       "   N   E R|  6.00 5B  (CAGE)R  8  CFLT
+ 7|    ' B E   ' M E O U S '   E|  6.00 H3  (E)FT    10 CLR
+ 8|=     A     T O L D   '     I|  6.00 1N  (E)R     6  CFLT
+ 9|  P I T H E A d '       '   S|  6.00 1N  (E)L     6  CFRT
+10|  Y   F O H N     "       " S|  7.00 K1  (E)F     10 CLRT
+11|T E P O Y           - V     U|  8.00 1N  (E)T     6  CFLR
 12|' M   W       '     Z I N   E| --Tracking-----------------------------------
 13|  I - L     '   '     D O O R| ALUX  4
 14|K A       "       "   S   I  |
@@ -467,16 +467,16 @@ Quackle Computer: Turn 12
    A B C D E F G H I J K L M N O      David Boys               LA        404 
    ------------------------------  -> Quackle Computer         CLRT      350 
  1|Q U O I N     B A R E D   E F| --Speedy Player's choices (your play: 1)-----
- 2|  -     A "       "   E   R  |  15.0*14A (KA)T    7 CLR
- 3|    W R I N G E D     T - G  |  16.0 13B (I)L(L)  6 CRT
- 4|'     - V     '       A   A '|  21.0 9L  CR(US)   7 LT
- 5|  C A G E         J O I N T  |  25.0 I6  C(EL)    5 LRT
- 6|  "     t "       "   N   E R|  25.0 H1  (B)L(E)T 7 CR
- 7|    ' B E   ' M E O U S '   E|  26.0 5B  (CAGE)R  8 CLT
- 8|=     A     T O L D   '   X I|  28.0 M12 (NO)R    6 CLT
- 9|  P I T H E A d '       ' U S|  29.0 7D  (BE)T    5 CLR
-10|  Y   F O H N     "       " S|  29.0 7D  (BE)L    5 CRT
-11|T E P O Y           - V     U|  30.0 8C  T(A)     4 CLR
+ 2|  -     A "       "   E   R  | best *14A (KA)T    7 CLR
+ 3|    W R I N G E D     T - G  |  1.00 13B (I)L(L)  6 CRT
+ 4|'     - V     '       A   A '|  6.00 9L  CR(US)   7 LT
+ 5|  C A G E         J O I N T  |  10.0 I6  C(EL)    5 LRT
+ 6|  "     t "       "   N   E R|  10.0 H1  (B)L(E)T 7 CR
+ 7|    ' B E   ' M E O U S '   E|  11.0 5B  (CAGE)R  8 CLT
+ 8|=     A     T O L D   '   X I|  13.0 M12 (NO)R    6 CLT
+ 9|  P I T H E A d '       ' U S|  14.0 7D  (BE)T    5 CLR
+10|  Y   F O H N     "       " S|  14.0 7D  (BE)L    5 CRT
+11|T E P O Y           - V     U|  15.0 8C  T(A)     4 CLR
 12|' M   W       '     Z I N   E| --Tracking-----------------------------------
 13|  I - L     '   '     D O O R| AL  2
 14|K A       "       "   S   I  |

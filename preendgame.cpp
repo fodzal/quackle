@@ -114,6 +114,8 @@ MoveList Preendgame::moves(int nmoves)
 		return ret;
 	}
 
+	// getInitialMoves increments the nestedness.
+	const bool topLevel = currentPosition().nestedness() == 0;
 	const double fractionAllottedToInitialBogo = calculateFractionAllottedToInitialBogo();
 	const int timeLimit = calculateTimeLimit();
 	Stopwatch stopwatch;
@@ -141,11 +143,11 @@ MoveList Preendgame::moves(int nmoves)
 		UVcout << moves << endl;
 	}
 
+	// A negative win marks a candidate the time limit left unevaluated.
 	for (MoveList::iterator moveIt = moves.begin(); moveIt != moves.end(); ++moveIt)
 	{
-		(*moveIt).win = 0;
-		(*moveIt).possibleWin = 0;
-		// (*moveIt).equity = 0;
+		(*moveIt).win = -1;
+		(*moveIt).possibleWin = -1;
 	}
 
 	GamePosition tempPosition;
@@ -153,9 +155,13 @@ MoveList Preendgame::moves(int nmoves)
 	resolvent.setParameters(m_parameters);
 	resolvent.setThreadCount(threadCount(), threadQoS());
 
+	bool outOfTime = false;
 	int j = 0;
 	for (MoveList::iterator moveIt = moves.begin(); moveIt != moves.end(); ++moveIt, ++j)
 	{
+		if (outOfTime && !m_simulator.isConsideredMove(*moveIt))
+			continue;
+
 		(*moveIt).win = 1;
 		(*moveIt).possibleWin = 1;
 
@@ -209,7 +215,7 @@ MoveList Preendgame::moves(int nmoves)
 		}
 
 		if (m_parameters.timeLimit && stopwatch.exceeded(timeLimit))
-			break;
+			outOfTime = true;
 
 		if (shouldAbort())
 			goto sort_and_return;
@@ -229,11 +235,16 @@ sort_and_return:
 	int i = 1;
 	for (MoveList::iterator moveIt = moves.begin(); moveIt != moves.end(); ++moveIt, ++i)
 	{
+		if ((*moveIt).win < 0)
+			continue;
+
 		// move() takes moves(1).back(), so only a longer list may carry considered moves.
 		if (i > nmoves && (nmoves == 1 || !m_simulator.isConsideredMove(*moveIt)))
 			continue;
 
-		(*moveIt).win = (*moveIt).possibleWin;
+		// The caller of a nested search wants the outcome against the real rack, not the mover's estimate.
+		if (!topLevel)
+			(*moveIt).win = (*moveIt).possibleWin;
 		ret.push_back(*moveIt);
 
 		if (m_debugPreendgame)

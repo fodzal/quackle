@@ -93,7 +93,7 @@ void Reporter::reportPosition(const GamePosition &position, ComputerPlayer *comp
 		}
 
 		int highestScore = 0;
-		double highestEquity = 0;
+		double highestEquity = moves.empty() ? 0 : moves.front().equity;
 		size_t widestPositionString = 0;
 		unsigned int widestMove = 0;
 		bool hasWinPercentages = false;
@@ -184,9 +184,11 @@ void Reporter::reportPosition(const GamePosition &position, ComputerPlayer *comp
 			// column 6, the win percentage
 			if (hasWinPercentages)
 			{
-				s.precision(4);
+				s.precision(1);
 				s.width(5);
-				s << showpoint << ((*it).win * 100.0) << MARK_UV("% ");
+				s << right << fixed << ((*it).win * 100.0) << MARK_UV("% ");
+				s.unsetf(ios_base::floatfield);
+				s << left;
 			}
 
 			// column 7, the leave
