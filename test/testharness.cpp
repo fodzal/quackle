@@ -392,6 +392,7 @@ void TestHarness::startUp()
 	{
 		UVcerr << "Couldn't load alphabet " << QuackleIO::Util::qstringToString(m_alphabet) << endl;
 		delete flexure;
+		exit(1);
 	}
 
 	m_dataManager.setBoardParameters(new ScrabbleBoard());
