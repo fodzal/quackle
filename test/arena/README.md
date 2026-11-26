@@ -30,3 +30,19 @@ python3 test/arena/arena.py --bin build-release --pairs 200 \
 
 The drawing order is imposed only after the player has chosen its move, so a player
 never sees the order of the bag.
+
+## Sequential stopping
+
+`--sprt ELO0,ELO1` stops the arena as soon as it can tell whether B is at least ELO1 Elo
+stronger than A (H1) or at most ELO0 (H0), with error rates `--alpha` (H1 accepted
+wrongly) and `--beta` (H0 accepted wrongly), both 0.05 by default. `--pairs` is then
+the most pairs it will play. The test is the normal approximation of the generalized
+SPRT on pair scores, so it waits for 20 complete pairs before deciding.
+
+```
+python3 test/arena/arena.py --bin build-release --pairs 100000 --sprt 0,10 \
+    --computer "Static Player" --computer2 "Static Player" --config2 strategy=../leaves/gen1
+```
+
+The jobs still split the seeds into one contiguous block each; when the test stops them,
+the CSV holds the pairs finished so far.

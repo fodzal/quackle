@@ -88,16 +88,69 @@ def elo(score):
     return round(-400 * math.log10(1 / score - 1)) or 0.0
 
 
-def summarize(games):
+def complete_pairs(games):
     by_seed = {}
     for g in games:
         by_seed.setdefault(g["seed"], []).append(g)
-    pairs = [v for v in by_seed.values() if len(v) == 2]
+    return [v for v in by_seed.values() if len(v) == 2]
 
-    def score_b(g):
-        return 1.0 if g["scoreB"] > g["scoreA"] else 0.5 if g["scoreB"] == g["scoreA"] else 0.0
 
-    pair_scores = [sum(score_b(g) for g in p) / 2 for p in pairs]
+def score_b(g):
+    return 1.0 if g["scoreB"] > g["scoreA"] else 0.5 if g["scoreB"] == g["scoreA"] else 0.0
+
+
+def pair_score(pair):
+    return sum(score_b(g) for g in pair) / 2
+
+
+def expected_score(elo_difference):
+    return 1 / (1 + 10 ** (-elo_difference / 400))
+
+
+class Sprt:
+    """Sequential test of H0: B is elo0 stronger than A, against H1: elo1 stronger.
+
+    Each pair's mean score is one sample; the log-likelihood ratio uses the
+    normal approximation of the generalized SPRT, with the pairs' own variance.
+    """
+
+    MINIMUM_PAIRS = 20
+
+    def __init__(self, elo0, elo1, alpha, beta):
+        self.elo0, self.elo1 = elo0, elo1
+        self.s0, self.s1 = expected_score(elo0), expected_score(elo1)
+        self.lower = math.log(beta / (1 - alpha))
+        self.upper = math.log((1 - beta) / alpha)
+
+    def llr(self, scores):
+        n = len(scores)
+        if n < 2:
+            return 0.0
+        mean = sum(scores) / n
+        variance = max(sum((x - mean) ** 2 for x in scores) / (n - 1), 1e-9)
+        return n * (self.s1 - self.s0) * (2 * mean - self.s0 - self.s1) / (2 * variance)
+
+    def decision(self, scores):
+        if len(scores) < self.MINIMUM_PAIRS:
+            return None
+        llr = self.llr(scores)
+        if llr >= self.upper:
+            return "H1"
+        if llr <= self.lower:
+            return "H0"
+        return None
+
+    def report(self, scores):
+        verdict = {"H1": f"H1 accepted: B is at least {self.elo1:+g} Elo stronger",
+                   "H0": f"H0 accepted: B is not {self.elo1:+g} Elo stronger (at most {self.elo0:+g})",
+                   None: "no decision"}[self.decision(scores)]
+        return (f"SPRT        elo0 {self.elo0:+g} elo1 {self.elo1:+g}: LLR {self.llr(scores):+.2f}"
+                f" in [{self.lower:.2f}, {self.upper:.2f}] after {len(scores)} pairs; {verdict}")
+
+
+def summarize(games):
+    pairs = complete_pairs(games)
+    pair_scores = [pair_score(p) for p in pairs]
     pair_spreads = [sum(g["scoreB"] - g["scoreA"] for g in p) / 2 for p in pairs]
     score, score_hw = mean_and_halfwidth(pair_scores)
     spread, spread_hw = mean_and_halfwidth(pair_spreads)
@@ -141,7 +194,22 @@ def main():
     ap.add_argument("--config2")
     ap.add_argument("--out", help="CSV file for per-game results")
     ap.add_argument("--start", type=int, help="Static Player plays both seats until at most START tiles are in the bag")
+    ap.add_argument("--sprt", metavar="ELO0,ELO1",
+                    help="stop as soon as a sequential test accepts H0 (B is ELO0 stronger) or H1 (ELO1 stronger); "
+                         "--pairs is then the most pairs played")
+    ap.add_argument("--alpha", type=float, default=0.05, help="SPRT: chance of accepting H1 when H0 holds")
+    ap.add_argument("--beta", type=float, default=0.05, help="SPRT: chance of accepting H0 when H1 holds")
     args = ap.parse_args()
+
+    sprt = None
+    if args.sprt:
+        try:
+            elo0, elo1 = (float(x) for x in args.sprt.split(","))
+        except ValueError:
+            sys.exit("--sprt takes ELO0,ELO1, e.g. 0,10")
+        if elo1 <= elo0:
+            sys.exit("--sprt needs ELO1 > ELO0")
+        sprt = Sprt(elo0, elo1, args.alpha, args.beta)
 
     args.config = absolute_strategies(args.config)
     args.config2 = absolute_strategies(args.config2)
@@ -182,21 +250,36 @@ def main():
     print(f"  B = {args.computer2} [{args.config2 or 'defaults'}]")
     if args.start is not None:
         print(f"  from the first position with at most {args.start} tiles in the bag, reached by Static Player")
+    if sprt:
+        print(f"  SPRT elo0 {sprt.elo0:+g} elo1 {sprt.elo1:+g}, alpha {args.alpha}, beta {args.beta}; at most {args.pairs} pairs")
     print(f"  logs in {work_root}")
 
     start = time.time()
     done = -1
+    terminated = set()
     while True:
         running = sum(p.poll() is None for p, _ in procs)
         games = [g for _, log in procs for g in parse_games(log.read_text(errors="replace"))]
         if len(games) != done:
             done = len(games)
-            print(f"[{time.time() - start:6.0f}s] {done}/{2 * args.pairs} games")
+            line = f"[{time.time() - start:6.0f}s] {done}/{2 * args.pairs} games"
+            if sprt:
+                line += f", LLR {sprt.llr([pair_score(p) for p in complete_pairs(games)]):+.2f}"
+            print(line)
         if not running:
+            break
+        if sprt and sprt.decision([pair_score(p) for p in complete_pairs(games)]):
+            for j, (p, _) in enumerate(procs):
+                if p.poll() is None:
+                    p.terminate()
+                    terminated.add(j)
+            for p, _ in procs:
+                p.wait()
+            games = [g for _, log in procs for g in parse_games(log.read_text(errors="replace"))]
             break
         time.sleep(5)
 
-    failed = [(p.returncode, log) for p, log in procs if p.returncode]
+    failed = [(p.returncode, log) for j, (p, log) in enumerate(procs) if p.returncode and j not in terminated]
     for code, log in failed:
         print(f"job exited with {code}; see {log}")
 
@@ -207,6 +290,8 @@ def main():
             w.writerows(sorted(games, key=lambda g: (g["seed"], g["first"])))
 
     print(summarize(games))
+    if sprt:
+        print(sprt.report([pair_score(p) for p in complete_pairs(games)]))
     elapsed = time.time() - start
     print(f"throughput  {len(games) / 2 / elapsed * 60:.0f} pairs per minute ({elapsed:.0f}s)")
     return 1 if failed else 0
