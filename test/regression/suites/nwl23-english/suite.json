@@ -23,6 +23,7 @@
     { "name": "wintable-static",       "mode": "wintable", "args": ["--computer=Static Player", "--repetitions=3"], "seed": 11 },
 
     { "name": "bestmove",              "mode": "bestmove", "args": ["--repetitions=3"], "seed": 21 },
+    { "name": "boardfeatures",         "mode": "boardfeatures", "args": ["--repetitions=2"], "seed": 22 },
 
     { "name": "inference",             "mode": "inference", "args": ["--config=infer=200", "--repetitions=2"], "seed": 17 },
 

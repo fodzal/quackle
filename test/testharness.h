@@ -123,6 +123,7 @@ public:
 	void winTable(unsigned int games);
 	void endgame(unsigned int games);
 	void bestMove(unsigned int games);
+	void boardFeatureCheck(unsigned int games);
 	void inference(unsigned int games);
 	ArenaResult arenaGame(unsigned int seed, bool bMovesFirst);
 

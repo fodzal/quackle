@@ -17,6 +17,7 @@
  */
 
 #include "board.h"
+#include "boardparameters.h"
 #include "datamanager.h"
 #include "game.h"
 #include "evaluator.h"
@@ -119,6 +120,167 @@ struct LeaveCache
 
 thread_local LeaveCache leaveCache;
 
+}
+
+namespace
+{
+
+const int reach = 7;
+
+// The new tiles of a placement, read over the board.
+struct Overlay
+{
+	const Board &board;
+	const Move *move;
+	int length = 0;
+
+	Overlay(const Board &board, const Move *move)
+		: board(board), move(move)
+	{
+		if (move)
+			length = (int)move->tiles().length();
+	}
+
+	bool isNew(int row, int col) const
+	{
+		if (!move)
+			return false;
+		const int along = move->horizontal ? col - move->startcol : row - move->startrow;
+		const int across = move->horizontal ? row - move->startrow : col - move->startcol;
+		return across == 0 && along >= 0 && along < length && !Move::isAlreadyOnBoard(move->tiles()[along]);
+	}
+
+	bool onBoard(int row, int col) const { return row >= 0 && col >= 0 && row < board.height() && col < board.width(); }
+	bool occupied(int row, int col) const { return board.letter(row, col) != QUACKLE_NULL_MARK || isNew(row, col); }
+
+	bool isAnchor(int row, int col) const
+	{
+		if (occupied(row, col))
+			return false;
+		static const int steps[4][2] = { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } };
+		for (const auto &step : steps)
+		{
+			const int r = row + step[0], c = col + step[1];
+			if (onBoard(r, c) && occupied(r, c))
+				return true;
+		}
+		return false;
+	}
+
+	bool isReached(int row, int col) const
+	{
+		if (occupied(row, col))
+			return false;
+		static const int steps[4][2] = { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } };
+		for (const auto &step : steps)
+			for (int k = 1; k <= reach; ++k)
+			{
+				const int r = row + k * step[0], c = col + k * step[1];
+				if (!onBoard(r, c))
+					break;
+				if (occupied(r, c))
+					return true;
+			}
+		return false;
+	}
+};
+
+int anchorFeature(int row, int col)
+{
+	const int word = QUACKLE_BOARD_PARAMETERS->wordMultiplier(row, col);
+	const int letter = QUACKLE_BOARD_PARAMETERS->letterMultiplier(row, col);
+	if (word >= 3)
+		return AnchorTripleWord;
+	if (word == 2)
+		return AnchorDoubleWord;
+	if (letter >= 3)
+		return AnchorTripleLetter;
+	if (letter == 2)
+		return AnchorDoubleLetter;
+	return AnchorPlain;
+}
+
+int reachFeature(int row, int col)
+{
+	const int word = QUACKLE_BOARD_PARAMETERS->wordMultiplier(row, col);
+	if (word >= 3)
+		return ReachTripleWord;
+	if (word == 2)
+		return ReachDoubleWord;
+	return -1;
+}
+
+void measure(const Overlay &overlay, double features[BoardFeatureCount])
+{
+	for (int i = 0; i < BoardFeatureCount; ++i)
+		features[i] = 0;
+	for (int row = 0; row < overlay.board.height(); ++row)
+		for (int col = 0; col < overlay.board.width(); ++col)
+		{
+			if (overlay.isAnchor(row, col))
+				++features[anchorFeature(row, col)];
+			const int feature = reachFeature(row, col);
+			if (feature >= 0 && overlay.isReached(row, col))
+				++features[feature];
+		}
+}
+
+}
+
+const char *Quackle::boardFeatureName(int feature)
+{
+	static const char *names[BoardFeatureCount]
+		= { "anchor_tw", "anchor_dw", "anchor_tl", "anchor_dl", "anchor_plain", "reach_tw", "reach_dw" };
+	return feature >= 0 && feature < BoardFeatureCount ? names[feature] : "";
+}
+
+void Quackle::boardFeatures(const Board &board, double features[BoardFeatureCount])
+{
+	measure(Overlay(board, nullptr), features);
+}
+
+void Quackle::boardFeatureChanges(const Board &board, const Move &move, double changes[BoardFeatureCount])
+{
+	for (int i = 0; i < BoardFeatureCount; ++i)
+		changes[i] = 0;
+	if (move.action != Move::Place || move.tiles().empty())
+		return;
+
+	const Overlay before(board, nullptr);
+	const Overlay after(board, &move);
+	const int length = (int)move.tiles().length();
+	const int rowStep = move.horizontal ? 0 : 1;
+	const int colStep = move.horizontal ? 1 : 0;
+
+	// Anchors change only on the new tiles and their neighbours.
+	const int firstRow = move.startrow - 1, lastRow = move.startrow + rowStep * (length - 1) + 1;
+	const int firstCol = move.startcol - 1, lastCol = move.startcol + colStep * (length - 1) + 1;
+	for (int row = firstRow; row <= lastRow; ++row)
+		for (int col = firstCol; col <= lastCol; ++col)
+		{
+			if (!before.onBoard(row, col))
+				continue;
+			// Diagonal corners of the box touch no new tile.
+			if ((row == firstRow || row == lastRow) && (col == firstCol || col == lastCol))
+				continue;
+			const int change = (int)after.isAnchor(row, col) - (int)before.isAnchor(row, col);
+			if (change)
+				changes[anchorFeature(row, col)] += change;
+		}
+
+	// Reach changes only for premium squares sharing a line with a new tile.
+	for (int row = 0; row < board.height(); ++row)
+		for (int col = 0; col < board.width(); ++col)
+		{
+			const int feature = reachFeature(row, col);
+			if (feature < 0)
+				continue;
+			const bool sameLine = move.horizontal ? (row == move.startrow || (col >= move.startcol && col < move.startcol + length))
+												  : (col == move.startcol || (row >= move.startrow && row < move.startrow + length));
+			if (!sameLine)
+				continue;
+			changes[feature] += (int)after.isReached(row, col) - (int)before.isReached(row, col);
+		}
 }
 
 double Evaluator::equity(const GamePosition &position, const Move &move) const

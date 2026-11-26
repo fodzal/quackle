@@ -24,9 +24,32 @@
 namespace Quackle
 {
 
+class Board;
 class GamePosition;
 class Move;
 class StrategyParameters;
+
+// Measures of how open a board is: empty squares next to a tile, by premium (triple word, double word,
+// triple letter, double letter, none), then triple and double word squares that an empty line links to a
+// tile within reach of one rack.
+enum BoardFeature {
+	AnchorTripleWord,
+	AnchorDoubleWord,
+	AnchorTripleLetter,
+	AnchorDoubleLetter,
+	AnchorPlain,
+	ReachTripleWord,
+	ReachDoubleWord,
+	BoardFeatureCount
+};
+
+const char *boardFeatureName(int feature);
+
+// The board's measures.
+void boardFeatures(const Board &board, double features[BoardFeatureCount]);
+
+// How much the move changes them; zero for anything but a placement.
+void boardFeatureChanges(const Board &board, const Move &move, double changes[BoardFeatureCount]);
 
 class Evaluator
 {

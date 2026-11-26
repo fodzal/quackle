@@ -27,6 +27,7 @@
 #include <resolvent.h>
 #include <datamanager.h>
 #include <endgameplayer.h>
+#include <evaluator.h>
 #include <endgamesolver.h>
 #include <inferrer.h>
 #include <game.h>
@@ -237,6 +238,8 @@ const char *usage = "Optional arguments:\n"
 					"                 compares the endgame solver (budget from --config endgame=)\n"
 					"                 with the playout heuristic, both judged by a deeper solve.\n"
 					"       'passout' checks win and spread of an endgame that ends by passes.\n"
+					"       'boardfeatures' plays --repetitions Static Player games and checks, for every\n"
+					"                       move, the board measures' change against measuring twice.\n"
 					"--position=game.gcg; this option can be repeated to specify positions\n"
 					"                     to test.\n"
 					"--lexicon=; sets the lexicon (default 'nwl23').\n"
@@ -249,7 +252,8 @@ const char *usage = "Optional arguments:\n"
 					"--movelog=file; during selfplay, append one csv row per move of every finished game:\n"
 					"           seed, game, turn, player, bag (tiles in it before the move), spread (the\n"
 					"           mover's lead), rack, move, score, leave, value (of the leave, in the mover's\n"
-					"           tables), equity, result (the mover's final spread).\n"
+					"           tables), equity, d_* (how the move changes each board measure), b_* (the\n"
+					"           measures before the move), result (the mover's final spread).\n"
 					"--repetitions=integer; the number of games for selfplay (default 1000).\n"
 					"--players=integer; the number of players in selfplay games (default 2).\n"
 					"           Seats alternate between --computer and --computer2.\n"
@@ -340,7 +344,13 @@ void TestHarness::executeFromArguments()
 			exit(1);
 		}
 		if (fresh)
-			m_moveLog << "seed,game,turn,player,bag,spread,rack,move,score,leave,value,equity,result" << endl;
+		{
+			m_moveLog << "seed,game,turn,player,bag,spread,rack,move,score,leave,value,equity";
+			for (const char *prefix : { "d_", "b_" })
+				for (int i = 0; i < Quackle::BoardFeatureCount; ++i)
+					m_moveLog << ',' << prefix << Quackle::boardFeatureName(i);
+			m_moveLog << ",result" << endl;
+		}
 	}
 	if (m_playerCount < 1 || m_playerCount > 26)
 	{
@@ -398,6 +408,8 @@ void TestHarness::executeFromArguments()
 		winTable(reps);
 	else if (mode == "endgame")
 		endgame(reps);
+	else if (mode == "boardfeatures")
+		boardFeatureCheck(reps);
 	else if (mode == "bestmove")
 		bestMove(reps);
 	else if (mode == "inference")
@@ -1040,6 +1052,14 @@ TestHarness::SelfPlayResult TestHarness::selfPlayGame(unsigned int gameNumber, b
 				row << m_seed << ',' << gameNumber << ',' << i << ',' << player.id() << ',' << before.bag().size() << ','
 					<< before.spread(player.id()) << ',' << player.rack() << ',' << moveText << ',' << compMove.score << ',' << leave << ','
 					<< mover.leaveValue(leave.tiles()) << ',' << compMove.equity << ',';
+				double changes[Quackle::BoardFeatureCount];
+				double board[Quackle::BoardFeatureCount];
+				Quackle::boardFeatureChanges(before.board(), compMove, changes);
+				Quackle::boardFeatures(before.board(), board);
+				for (const double value : changes)
+					row << value << ',';
+				for (const double value : board)
+					row << value << ',';
 				loggedMoves.push_back({ player.id(), row.str() });
 			}
 		}
@@ -1584,6 +1604,59 @@ void TestHarness::bestMove(unsigned int games)
 	}
 
 	UVcout << "BESTMOVE SUMMARY games " << games << ", positions " << positions << ", mismatches " << mismatches << endl;
+}
+
+void TestHarness::boardFeatureCheck(unsigned int games)
+{
+	ComputerPlayer *staticPlayer = checkPlayerName("Static Player");
+	long long moves = 0;
+	long long mismatches = 0;
+	double totals[Quackle::BoardFeatureCount] = {};
+
+	for (unsigned int g = 0; g < games; ++g)
+	{
+		Quackle::PlayerList players;
+		players.push_back(Quackle::Player(MARK_UV("A"), Quackle::Player::ComputerPlayerType, 0));
+		players.push_back(Quackle::Player(MARK_UV("B"), Quackle::Player::ComputerPlayerType, 1));
+		Quackle::Game game;
+		game.setPlayers(players);
+		game.addPosition();
+		for (int turn = 0; turn < 1000 && !game.currentPosition().gameOver(); ++turn)
+		{
+			GamePosition all(game.currentPosition());
+			all.kibitz(1000000);
+			double before[Quackle::BoardFeatureCount];
+			Quackle::boardFeatures(all.board(), before);
+			for (const Move &move : all.moves())
+			{
+				if (move.action != Move::Place)
+					continue;
+				double changes[Quackle::BoardFeatureCount];
+				Quackle::boardFeatureChanges(all.board(), move, changes);
+				Board board(all.board());
+				board.makeMove(move);
+				double after[Quackle::BoardFeatureCount];
+				Quackle::boardFeatures(board, after);
+				++moves;
+				for (int i = 0; i < Quackle::BoardFeatureCount; ++i)
+				{
+					totals[i] += changes[i];
+					if (changes[i] != after[i] - before[i])
+					{
+						if (++mismatches <= 10)
+							UVcout << "BOARDFEATURES MISMATCH " << Quackle::boardFeatureName(i) << " for " << move << ": " << changes[i]
+								   << " against " << after[i] - before[i] << endl;
+					}
+				}
+			}
+			game.haveComputerPlay(staticPlayer);
+		}
+	}
+
+	UVcout << "BOARDFEATURES SUMMARY games " << games << ", moves " << moves << ", mismatches " << mismatches << ", mean changes";
+	for (int i = 0; i < Quackle::BoardFeatureCount; ++i)
+		UVcout << " " << Quackle::boardFeatureName(i) << " " << (moves ? totals[i] / moves : 0);
+	UVcout << endl;
 }
 
 void TestHarness::inference(unsigned int games)
