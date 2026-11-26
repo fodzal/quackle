@@ -131,6 +131,16 @@ Validation :
 
 Les nouvelles valeurs deviennent le défaut seulement si le palier 4 est favorable.
 
+**Bilan du chantier 2 (2026-11-26).** Les reliquats appris par self-play prédisent mieux le
+coup suivant que ceux de 2013 (palier 1), mais ils ne jouent pas mieux : toutes les variantes
+(une ou deux générations, par phase, cible ajustée, triplets) sont neutres en arène statique,
+à ±2,5 Elo près. La table de 2013 était sans doute déjà apprise par self-play : refaire la même
+chose redonne la même force. Aucune table ne devient le défaut, et le palier 4 n'a pas lieu
+d'être. Les outils (2.1, 2.2) restent utiles pour les chantiers 3 et 4 ; `ai/phase-leaves`
+n'est pas fusionnée. Le gain, s'il existe, est à chercher ailleurs que dans la valeur du
+reliquat seule : la cible ne mesure qu'un coup, et l'equity statique ignore le plateau (A8),
+ce qui biaise aussi l'apprentissage (on garde beaucoup de tuiles quand le plateau est fermé).
+
 ## Chantier 3 — Timing, premier coup et finale appris
 
 1. **`ai/timing`** (B10) — `heuristicArray[13]`, indexé par `sac − tuiles + 7`, devient une table
@@ -209,5 +219,10 @@ Ensuite, selon les résultats :
 | 26 | `test/arena-static` | 1.2 | prête | 6 300 paires par minute ; ±1,7 Elo en 10 min ; sans superleaves : −29 Elo (−32..−27), −12,2 ± 0,8 points |
 | 27 | `test/arena-sprt` | 1.3 | prête | SPRT 0/+10 simulé : 4 % de H1 à 0 Elo, 97 % à +10 ; en arène, sans superleaves : décidé en 600 paires (H0) et, sièges inversés, en 1 000 paires (H1) |
 | 28 | `test/arena-reference` | 1.4 | prête | Static sur les tables figées : les mêmes 400 paires que sur celles du dépôt |
+| 29 | `tools/selfplay-data` | 2.1 | prête | `--movelog` ; ≈ 7 900 parties par minute en pratique (le portable chauffe), 0,6 Mo compressé pour 1 000 parties ; génération 0 : 500 000 parties, 8,3 M coups utilisables |
+| 30 | `tools/leaves` | 2.2 | prête | gen1 : erreur hors ligne 569,0 contre 581,1 pour la table de 2013 (palier 1 franchi) ; **palier 2 neutre** : 50,17 % ± 0,42 (+1 Elo, −2..+4), +0,2 ± 0,9 point, 20 000 paires |
+| 31 | `ai/phase-leaves` | 2.4 | prête, **non retenue** | une table par phase (tuiles dans le sac avant le coup : 15, 29, 50), heuristique de timing coupée quand elles sont là ; sans elles, mêmes parties et goldens (38/38 ASan) ; gen2 par phases contre 2013 : 49,89 % ± 0,42 (−1 Elo, −4..+2), −0,6 ± 0,9 point |
+| — | itération (2.3) | 2.3 | convergée | gen2, appris sur 500 000 parties jouées avec gen1 : hors ligne 606,0 contre 607,3 pour gen1 ; gen2 contre gen1 : 50,20 % ± 0,36 (+1 Elo, −1..+4) ; gen2 contre 2013 : 49,85 % ± 0,42 (−1 Elo) ; la pénalité des longs reliquats se creuse d'une génération à l'autre (6 tuiles : −14,4 puis −21,6 en moyenne), signe d'un biais de sélection |
+| — | essais de méthode | 2.2 | non retenus | cible ajustée sur le score du coup joué (pente −0,012, donc sans effet) et triplets de tuiles dans le modèle (erreur hors ligne −0,5) : contre 2013, 49,62 % ± 0,42 (−3 Elo, −6..0), −1,35 ± 0,88 point |
 
 Sommet de la pile (`fix/missing-alphabet`) : régression 38/38 sous ASan (RelWithDebInfo), le 2026-11-26.
