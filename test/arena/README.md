@@ -46,3 +46,27 @@ python3 test/arena/arena.py --bin build-release --pairs 100000 --sprt 0,10 \
 
 The jobs still split the seeds into one contiguous block each; when the test stops them,
 the CSV holds the pairs finished so far.
+
+## Reference opponents
+
+A change to the default data has to beat two fixed opponents, not only the previous
+version of itself:
+
+- Static Player, which is fast and predictable;
+- Championship Player at `iterations=33,maxiterations=82,timelimit=0`, with the
+  strategy tables frozen at a fixed revision.
+
+`freeze.py` writes a lexicon's tables, as of a git revision, to a directory. Every
+table the harness would resolve is written, empty where there is none, so files added
+to the repository later cannot change the reference:
+
+```
+python3 test/arena/freeze.py --rev 2cb0782 --lexicon ods5 --out ../arena-ref/ods5-2cb0782
+python3 test/arena/arena.py --bin build-release --pairs 400 \
+    --computer "Championship Player" \
+    --config iterations=33,maxiterations=82,timelimit=0,strategy=../arena-ref/ods5-2cb0782 \
+    --computer2 "Championship Player" --config2 iterations=33,maxiterations=82,timelimit=0
+```
+
+The current reference for `ods5` is revision `2cb0782`. Only the data is frozen: both
+players run in the same binary, so engine changes reach the reference too.
