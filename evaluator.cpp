@@ -36,6 +36,7 @@ struct LeaveCache
 {
 	const ScorePlusLeaveEvaluator *evaluator = nullptr;
 	const StrategyParameters *strategy = nullptr;
+	int leavePhase = -1;
 	unsigned int dataVersion = 0;
 	LetterString rack;
 	int distinct = 0;
@@ -46,13 +47,14 @@ struct LeaveCache
 	std::vector<double> values;
 	std::vector<bool> known;
 
-	bool reset(const ScorePlusLeaveEvaluator *newEvaluator, const StrategyParameters *newStrategy, unsigned int newDataVersion,
-		const LetterString &newRack)
+	bool reset(const ScorePlusLeaveEvaluator *newEvaluator, const StrategyParameters *newStrategy, int newLeavePhase,
+		unsigned int newDataVersion, const LetterString &newRack)
 	{
 		const int maximumSubsets = 4096;
 
 		evaluator = newEvaluator;
 		strategy = newStrategy;
+		leavePhase = newLeavePhase;
 		dataVersion = newDataVersion;
 		rack = newRack;
 		distinct = 0;
@@ -141,10 +143,11 @@ double Evaluator::sharedConsideration(const GamePosition &position, const Move &
 	return 0;
 }
 
-double Evaluator::leaveValue(const LetterString &leave, const StrategyParameters &strategy) const
+double Evaluator::leaveValue(const LetterString &leave, const StrategyParameters &strategy, int bagTiles) const
 {
 	(void)leave;
 	(void)strategy;
+	(void)bagTiles;
 	return 0;
 }
 
@@ -159,19 +162,21 @@ double ScorePlusLeaveEvaluator::playerConsideration(const GamePosition &position
 {
 	const Rack &rack = position.currentPlayer().rack();
 	const StrategyParameters &strategy = position.strategy();
+	const int bagTiles = position.bag().size();
+	const int leavePhase = strategy.leavePhase(bagTiles);
 	const unsigned int dataVersion = QUACKLE_DATAMANAGER->evaluationDataVersion();
-	if ((leaveCache.evaluator != this || leaveCache.strategy != &strategy || leaveCache.dataVersion != dataVersion
-			|| !(leaveCache.rack == rack.tiles()))
-		&& !leaveCache.reset(this, &strategy, dataVersion, rack.tiles()))
-		return leaveValue((rack - move).tiles(), strategy);
+	if ((leaveCache.evaluator != this || leaveCache.strategy != &strategy || leaveCache.leavePhase != leavePhase
+			|| leaveCache.dataVersion != dataVersion || !(leaveCache.rack == rack.tiles()))
+		&& !leaveCache.reset(this, &strategy, leavePhase, dataVersion, rack.tiles()))
+		return leaveValue((rack - move).tiles(), strategy, bagTiles);
 
 	const int index = leaveCache.leaveIndex(move);
 	if (index < 0)
-		return leaveValue((rack - move).tiles(), strategy);
+		return leaveValue((rack - move).tiles(), strategy, bagTiles);
 
 	if (!leaveCache.known[index])
 	{
-		leaveCache.values[index] = leaveValue((rack - move).tiles(), strategy);
+		leaveCache.values[index] = leaveValue((rack - move).tiles(), strategy, bagTiles);
 		leaveCache.known[index] = true;
 	}
 	return leaveCache.values[index];
@@ -184,12 +189,12 @@ double ScorePlusLeaveEvaluator::sharedConsideration(const GamePosition &position
 	return 0;
 }
 
-double ScorePlusLeaveEvaluator::leaveValue(const LetterString &leave, const StrategyParameters &strategy) const
+double ScorePlusLeaveEvaluator::leaveValue(const LetterString &leave, const StrategyParameters &strategy, int bagTiles) const
 {
 	LetterString alphabetized = String::alphabetize(leave);
 
 	double superleaveValue;
-	if (strategy.hasSuperleaves() && strategy.superleave(alphabetized, &superleaveValue))
+	if (strategy.superleave(alphabetized, bagTiles, &superleaveValue))
 		return superleaveValue;
 
 	double value = 0;

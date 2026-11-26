@@ -21,7 +21,10 @@
 
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 #include "alphabetparameters.h"
 
 namespace Quackle
@@ -40,6 +43,8 @@ public:
 	bool hasVcPlace() const;
 	bool hasBogowin() const;
 	bool hasSuperleaves() const;
+	// Leave tables that each hold from a number of tiles in the bag up to the next one's.
+	bool hasLeavePhases() const;
 
 	// letters are raw letters include bottom marks
 	double syn2(Letter letter1, Letter letter2) const;
@@ -51,6 +56,10 @@ public:
 
 	// false if the leave has no superleave entry
 	bool superleave(const LetterString &leave, double *value) const;
+	// The same, from the table of the phase that bagTiles tiles in the bag fall in.
+	bool superleave(const LetterString &leave, int bagTiles, double *value) const;
+	// -1 for the table superleave(leave, value) reads.
+	int leavePhase(int bagTiles) const;
 
 protected:
 	bool loadSyn2(const string &filename);
@@ -58,6 +67,7 @@ protected:
 	bool loadVcPlace(const string &filename);
 	bool loadBogowin(const string &filename);
 	bool loadSuperleaves(const string &filename);
+	void loadLeavePhases(const string &filename, const std::function<string(const string &)> &find);
 
 	int mapLetter(Letter letter) const;
 
@@ -85,6 +95,9 @@ protected:
 	};
 	typedef std::unordered_map<LetterString, double, LetterStringHash, LetterStringEqual> SuperLeavesMap;
 	SuperLeavesMap m_superleaves;
+	bool loadSuperleaves(const string &filename, SuperLeavesMap *superleaves);
+	// Sorted by the first number of tiles in the bag each table holds for.
+	std::vector<std::pair<int, SuperLeavesMap>> m_leavePhases;
 	bool m_hasSyn2;
 	bool m_hasWorths;
 	bool m_hasVcPlace;
@@ -115,6 +128,19 @@ inline bool StrategyParameters::hasBogowin() const
 inline bool StrategyParameters::hasSuperleaves() const
 {
 	return m_hasSuperleaves;
+}
+
+inline bool StrategyParameters::hasLeavePhases() const
+{
+	return !m_leavePhases.empty();
+}
+
+inline int StrategyParameters::leavePhase(int bagTiles) const
+{
+	int phase = -1;
+	for (size_t i = 0; i < m_leavePhases.size() && m_leavePhases[i].first <= bagTiles; ++i)
+		phase = (int)i;
+	return phase;
 }
 
 inline int StrategyParameters::mapLetter(Letter letter) const
@@ -182,6 +208,19 @@ inline bool StrategyParameters::superleave(const LetterString &leave, double *va
 	return true;
 }
 
+inline bool StrategyParameters::superleave(const LetterString &leave, int bagTiles, double *value) const
+{
+	const int phase = leavePhase(bagTiles);
+	if (phase < 0)
+		return m_hasSuperleaves && superleave(leave, value);
+
+	const SuperLeavesMap &table = m_leavePhases[phase].second;
+	const SuperLeavesMap::const_iterator it = table.find(leave);
+	if (it == table.end())
+		return false;
+	*value = it->second;
+	return true;
+}
 }
 
 #endif

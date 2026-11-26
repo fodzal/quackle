@@ -513,7 +513,7 @@ double GamePosition::calculatePlayerConsideration(const Move &move)
 
 double GamePosition::leaveValue(const LetterString &leave) const
 {
-	return QUACKLE_EVALUATOR->leaveValue(leave, strategy());
+	return QUACKLE_EVALUATOR->leaveValue(leave, strategy(), bag().size());
 }
 
 void GamePosition::setStrategy(const StrategyParameters *strategy)

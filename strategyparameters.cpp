@@ -19,6 +19,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <functional>
 
 #include "alphabetparameters.h"
 #include "boardparameters.h"
@@ -55,6 +56,7 @@ void StrategyParameters::initialize(const string &lexicon, const string &directo
 	m_hasVcPlace = loadVcPlace(find("vcplace"));
 	m_hasBogowin = loadBogowin(find("bogowin"));
 	m_hasSuperleaves = loadSuperleaves(find("superleaves"));
+	loadLeavePhases(find("leavephases"), find);
 	DataManager::self()->evaluationDataChanged();
 }
 
@@ -229,7 +231,34 @@ bool StrategyParameters::loadVcPlace(const string &filename)
 
 bool StrategyParameters::loadSuperleaves(const string &filename)
 {
-	m_superleaves.clear();
+	return loadSuperleaves(filename, &m_superleaves);
+}
+
+void StrategyParameters::loadLeavePhases(const string &filename, const std::function<string(const string &)> &find)
+{
+	m_leavePhases.clear();
+	if (filename.empty())
+		return;
+
+	ifstream file(filename.c_str());
+	int bagTiles;
+	while (file >> bagTiles)
+	{
+		SuperLeavesMap table;
+		if (!loadSuperleaves(find("superleaves." + std::to_string(bagTiles)), &table))
+		{
+			m_leavePhases.clear();
+			return;
+		}
+		m_leavePhases.emplace_back(bagTiles, std::move(table));
+	}
+	std::sort(m_leavePhases.begin(), m_leavePhases.end(),
+		[](const std::pair<int, SuperLeavesMap> &a, const std::pair<int, SuperLeavesMap> &b) { return a.first < b.first; });
+}
+
+bool StrategyParameters::loadSuperleaves(const string &filename, SuperLeavesMap *superleaves)
+{
+	superleaves->clear();
 
 	ifstream file(filename.c_str(), ios::in | ios::binary);
 
@@ -260,7 +289,7 @@ bool StrategyParameters::loadSuperleaves(const string &filename)
 		LetterString leave = LetterString(leavebytes, leavesize);
 
 		double value = (double(intvalue) / 256.0) - 128.0;
-		m_superleaves.emplace(leave, value);
+		superleaves->emplace(leave, value);
 	}
 
 	file.close();

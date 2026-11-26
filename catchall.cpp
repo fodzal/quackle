@@ -60,6 +60,10 @@ double CatchallEvaluator::equity(const GamePosition &position, const Move &move)
 
 	else if (position.bag().size() > 0)
 	{
+		// Phased leave tables are learned with their timing in them.
+		if (position.strategy().hasLeavePhases())
+			return ScorePlusLeaveEvaluator::equity(position, move);
+
 		int leftInBagPlusSeven = position.bag().size() - move.usedTiles().length() + 7;
 		double heuristicArray[13] = { 0.0, -8.0, 0.0, -0.5, -2.0, -3.5, -2.0, 2.0, 10.0, 7.0, 4.0, -1.0, -2.0 };
 		double timingHeuristic = 0.0;

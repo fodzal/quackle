@@ -38,7 +38,7 @@ HOLDOUT = 10
 
 
 def samples(paths, alphabet):
-    """Yields (leave key, target, held-out game?, old value) for every usable move."""
+    """Yields (leave key, target, held-out game?, old value, tiles in the bag) for every usable move."""
     for path in paths:
         with gzip.open(path, "rt", newline="") as f:
             game_key, game = None, []
@@ -64,7 +64,7 @@ def game_samples(game, alphabet):
             if int(after["bag"]) == 0:
                 continue
             target = int(after["score"]) + float(after["value"])
-            yield alphabet.key(row["leave"]), target, heldout, float(row["value"])
+            yield alphabet.key(row["leave"]), target, heldout, float(row["value"]), int(row["bag"])
 
 
 def features(key, codes):
@@ -127,49 +127,38 @@ def predict(keys, codes, beta):
     return out
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--data", required=True, nargs="+", help="directories of chunk-*.csv.gz")
-    ap.add_argument("--out", required=True)
-    ap.add_argument("--alphabet", default="french")
-    ap.add_argument("--ridge", type=float, default=1.0, help="ridge penalty of the smoothing model")
-    ap.add_argument("--max-size", type=int, default=6)
-    args = ap.parse_args()
+class Table:
+    """Targets gathered for one leave table: per leave count, sum and sum of squares, and held-out samples."""
 
-    alphabet = sl.Alphabet(REPO / "data" / "alphabets" / f"{args.alphabet}.quackle_alphabet")
-    paths = sorted(p for d in args.data for p in Path(d).glob("chunk-*.csv.gz"))
-    if not paths:
-        sys.exit("no chunk-*.csv.gz in " + " ".join(args.data))
+    def __init__(self):
+        self.stats = {}
+        self.heldout = []
 
-    # Per leave: count, sum and sum of squares of targets on training games.
-    stats = {}
-    heldout = []
-    for key, target, is_heldout, old in samples(paths, alphabet):
+    def add(self, key, target, is_heldout, old):
         if is_heldout:
-            heldout.append((key, target, old))
-            continue
-        s = stats.get(key)
+            self.heldout.append((key, target, old))
+            return
+        s = self.stats.get(key)
         if s is None:
-            stats[key] = [1, target, target * target]
+            self.stats[key] = [1, target, target * target]
         else:
             s[0] += 1
             s[1] += target
             s[2] += target * target
-    train = sum(s[0] for s in stats.values())
-    if () not in stats:
-        sys.exit("no move kept an empty leave; not enough data")
-    anchor = stats[()][1] / stats[()][0]
 
-    # Targets relative to the empty leave from here on.
+
+def learn(table, leaves, codes, ridge, alphabet):
+    """Values of every leave in leaves, relative to the empty leave, and report lines."""
+    stats, heldout = table.stats, table.heldout
+    if () not in stats or not heldout:
+        sys.exit("no move kept an empty leave, or no held-out game; not enough data")
+    train = sum(s[0] for s in stats.values())
+    anchor = stats[()][1] / stats[()][0]
     for s in stats.values():
         s[2] += -2 * anchor * s[1] + s[0] * anchor * anchor
         s[1] -= s[0] * anchor
 
-    codes = feature_codes(alphabet)
-    beta = fit_model(stats, codes, args.ridge)
-
-    seen = list(stats)
-    model_seen = dict(zip(seen, predict(seen, codes, beta)))
+    beta = fit_model(stats, codes, ridge)
 
     def shrunk(key, k, model_value):
         s = stats.get(key)
@@ -192,21 +181,15 @@ def main():
     shrink_scores = {k: mse([shrunk(key, k, model_heldout[key]) for key, _, _ in heldout]) for k in SHRINKS}
     best_k = min(shrink_scores, key=shrink_scores.get)
 
-    leaves = alphabet.all_leaves(args.max_size)
     model_all = predict(leaves, codes, beta)
     values = [shrunk(key, best_k, m) for key, m in zip(leaves, model_all)]
-
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
-    sl.write(out / "superleaves", zip(leaves, values))
 
     by_size = {}
     for key, v in zip(leaves, values):
         by_size.setdefault(len(key), []).append(v)
-    best_single = sorted(((v, alphabet.leave_text(k)) for k, v in zip(leaves, values) if len(k) == 1), reverse=True)
+    singles = sorted(((v, alphabet.leave_text(k)) for k, v in zip(leaves, values) if len(k) == 1), reverse=True)
 
     report = [
-        f"data: {' '.join(str(Path(d).resolve()) for d in args.data)} ({len(paths)} chunks)",
         f"training samples {train}, distinct leaves seen {len(stats)} of {len(leaves)}; held-out samples {len(heldout)}",
         f"empty leave: next-move target {anchor:.3f} over {stats[()][0]} samples",
         f"held-out mean squared error, target relative to the empty leave (variance {float(np.var(targets)):.2f}):",
@@ -215,9 +198,56 @@ def main():
     report += [f"  shrink k={k:<6g} {v:9.3f}{'  <- chosen' if k == best_k else ''}" for k, v in shrink_scores.items()]
     report.append("mean value by leave size: " + ", ".join(
         f"{n}: {sum(v) / len(v):+.2f}" for n, v in sorted(by_size.items())))
-    report.append("single tiles: " + " ".join(f"{t} {v:+.1f}" for v, t in best_single))
-    (out / "report.txt").write_text("\n".join(report) + "\n", encoding="utf-8")
-    print("\n".join(report))
+    report.append("single tiles: " + " ".join(f"{t} {v:+.1f}" for v, t in singles))
+    return values, report
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--data", required=True, nargs="+", help="directories of chunk-*.csv.gz")
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--alphabet", default="french")
+    ap.add_argument("--ridge", type=float, default=1.0, help="ridge penalty of the smoothing model")
+    ap.add_argument("--max-size", type=int, default=6)
+    ap.add_argument("--phases", help="also learn one table per phase, from these numbers of tiles in the bag "
+                                     "before the move, e.g. 15,29,50; below the first, the single table holds")
+    args = ap.parse_args()
+
+    alphabet = sl.Alphabet(REPO / "data" / "alphabets" / f"{args.alphabet}.quackle_alphabet")
+    paths = sorted(p for d in args.data for p in Path(d).glob("chunk-*.csv.gz"))
+    if not paths:
+        sys.exit("no chunk-*.csv.gz in " + " ".join(args.data))
+    phases = sorted(int(x) for x in args.phases.split(",")) if args.phases else []
+
+    single = Table()
+    phased = [Table() for _ in phases]
+    for key, target, is_heldout, old, bag in samples(paths, alphabet):
+        single.add(key, target, is_heldout, old)
+        phase = max((i for i, lo in enumerate(phases) if lo <= bag), default=-1)
+        if phase >= 0:
+            phased[phase].add(key, target, is_heldout, old)
+
+    leaves = alphabet.all_leaves(args.max_size)
+    codes = feature_codes(alphabet)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+
+    report = [f"data: {' '.join(str(Path(d).resolve()) for d in args.data)} ({len(paths)} chunks)"]
+    values, lines = learn(single, leaves, codes, args.ridge, alphabet)
+    sl.write(out / "superleaves", zip(leaves, values))
+    report += ["single table:"] + ["  " + line for line in lines]
+
+    for i, (lo, table) in enumerate(zip(phases, phased)):
+        hi = phases[i + 1] if i + 1 < len(phases) else None
+        values, lines = learn(table, leaves, codes, args.ridge, alphabet)
+        sl.write(out / f"superleaves.{lo}", zip(leaves, values))
+        report += [f"phase {lo}..{hi - 1 if hi else ''} tiles in the bag:"] + ["  " + line for line in lines]
+    if phases:
+        (out / "leavephases").write_text("".join(f"{lo}\n" for lo in phases))
+
+    text = "".join(line + "\n" for line in report)
+    (out / "report.txt").write_text(text, encoding="utf-8")
+    print(text, end="")
 
 
 if __name__ == "__main__":
