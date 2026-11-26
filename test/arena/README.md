@@ -22,6 +22,11 @@ python3 test/arena/arena.py --bin build-release --pairs 200 \
 - Default lexicon is `ods5`/`french`. The gaddag is built and cached the same way as
   for the regression suites.
 - Use a Release build: an ASan or Debug build is several times slower.
+- `strategy=<directory>` in a config gives that player its own strategy tables: each
+  file found in the directory (`superleaves`, `bogowin`, `worths`, `syn2`, `vcplace`)
+  replaces the lexicon's. Comparing two tables is fastest with Static Player on both
+  sides, e.g. `--computer "Static Player" --computer2 "Static Player" --config2
+  strategy=../leaves/gen1`.
 
 The drawing order is imposed only after the player has chosen its move, so a player
 never sees the order of the bag.

@@ -55,6 +55,22 @@ def parse_games(text):
     return games
 
 
+def absolute_strategies(config):
+    """The harness runs in a scratch directory, so strategy=<dir> must not stay relative."""
+    if not config:
+        return config
+    items = []
+    for item in config.split(","):
+        key, sep, value = item.partition("=")
+        if key.strip() == "strategy":
+            path = Path(value.strip()).resolve()
+            if not path.is_dir():
+                sys.exit(f"strategy directory {path} not found")
+            item = f"strategy={path}"
+        items.append(item)
+    return ",".join(items)
+
+
 def mean_and_halfwidth(values):
     n = len(values)
     if n == 0:
@@ -127,6 +143,9 @@ def main():
     ap.add_argument("--start", type=int, help="Static Player plays both seats until at most START tiles are in the bag")
     args = ap.parse_args()
 
+    args.config = absolute_strategies(args.config)
+    args.config2 = absolute_strategies(args.config2)
+
     binary = rr.resolve_binary(args.bin)
     if not binary:
         sys.exit("libquackle_test not found; pass --bin")
@@ -188,6 +207,8 @@ def main():
             w.writerows(sorted(games, key=lambda g: (g["seed"], g["first"])))
 
     print(summarize(games))
+    elapsed = time.time() - start
+    print(f"throughput  {len(games) / 2 / elapsed * 60:.0f} pairs per minute ({elapsed:.0f}s)")
     return 1 if failed else 0
 
 
