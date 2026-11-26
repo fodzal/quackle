@@ -246,6 +246,10 @@ const char *usage = "Optional arguments:\n"
 					"--letters; letters to anagram.\n"
 					"--build; when mode is anagram, do not require that all letters be used.\n"
 					"--quiet; during selfplay, print only the summary (default false).\n"
+					"--movelog=file; during selfplay, append one csv row per move of every finished game:\n"
+					"           seed, game, turn, player, bag (tiles in it before the move), spread (the\n"
+					"           mover's lead), rack, move, score, leave, value (of the leave, in the mover's\n"
+					"           tables), equity, result (the mover's final spread).\n"
 					"--repetitions=integer; the number of games for selfplay (default 1000).\n"
 					"--players=integer; the number of players in selfplay games (default 2).\n"
 					"           Seats alternate between --computer and --computer2.\n"
@@ -269,6 +273,7 @@ void TestHarness::executeFromArguments()
 	QString qosString;
 	QString arenaStartString;
 	QString playersString;
+	QString moveLogString;
 	bool build;
 	QString letters;
 	bool help;
@@ -290,6 +295,7 @@ void TestHarness::executeFromArguments()
 	opts.addOption('q', "qos", &qosString);
 	opts.addOption('b', "arenastart", &arenaStartString);
 	opts.addOption('p', "players", &playersString);
+	opts.addOption('w', "movelog", &moveLogString);
 	opts.addRepeatableOption("position", &m_positions);
 
 	opts.addSwitch("report", &report);
@@ -324,6 +330,18 @@ void TestHarness::executeFromArguments()
 		m_arenaStartBag = arenaStartString.toInt();
 	if (!playersString.isNull())
 		m_playerCount = playersString.toInt();
+	if (!moveLogString.isNull())
+	{
+		const bool fresh = !QFile::exists(moveLogString);
+		m_moveLog.open(QuackleIO::Util::qstringToStdString(moveLogString).c_str(), ios::app);
+		if (!m_moveLog)
+		{
+			UVcout << "Could not open move log " << QuackleIO::Util::qstringToString(moveLogString) << endl;
+			exit(1);
+		}
+		if (fresh)
+			m_moveLog << "seed,game,turn,player,bag,spread,rack,move,score,leave,value,equity,result" << endl;
+	}
 	if (m_playerCount < 1 || m_playerCount > 26)
 	{
 		UVcout << "--players must be between 1 and 26" << endl;
@@ -349,6 +367,7 @@ void TestHarness::executeFromArguments()
 	{
 		UVcout << "using seed " << seed << endl;
 		m_dataManager.seedRandomNumbers(seed);
+		m_seed = seed;
 	}
 
 	if (mode == "positions")
@@ -928,6 +947,13 @@ TestHarness::SelfPlayResult TestHarness::selfPlayGame(unsigned int gameNumber, b
 	QElapsedTimer time;
 	time.start();
 
+	struct LoggedMove
+	{
+		int player;
+		UVString row;
+	};
+	vector<LoggedMove> loggedMoves;
+
 	// Six scoreless turns end any game, so this only guards against a broken engine.
 	const int maxMoves = 1000;
 	int i;
@@ -943,6 +969,13 @@ TestHarness::SelfPlayResult TestHarness::selfPlayGame(unsigned int gameNumber, b
 					result.scoreA = it->score();
 				else if (it->id() == 1 || it->score() > result.scoreB)
 					result.scoreB = it->score();
+			}
+
+			if (m_moveLog.is_open())
+			{
+				for (const LoggedMove &logged : loggedMoves)
+					m_moveLog << logged.row << game.currentPosition().spread(logged.player) << MARK_UV('\n');
+				m_moveLog.flush();
 			}
 
 			if (!m_quiet)
@@ -983,9 +1016,32 @@ TestHarness::SelfPlayResult TestHarness::selfPlayGame(unsigned int gameNumber, b
 		}
 		else
 		{
+			const Quackle::GamePosition before(game.currentPosition());
 			Quackle::Move compMove(game.haveComputerPlay());
 			if (!m_quiet)
 				UVcout << "with " << player.rack() << ", " << player.name() << " commits to " << compMove << endl;
+
+			if (m_moveLog.is_open())
+			{
+				Quackle::GamePosition mover(before);
+				if (player.computerPlayer() && player.computerPlayer()->parameters().strategy)
+					mover.setStrategy(player.computerPlayer()->parameters().strategy.get());
+				const Quackle::Rack leave = player.rack() - compMove;
+
+				UVString moveText;
+				if (compMove.action == Quackle::Move::Place)
+					moveText = compMove.positionString() + MARK_UV(" ") + QUACKLE_ALPHABET_PARAMETERS->userVisible(compMove.prettyTiles());
+				else if (compMove.action == Quackle::Move::Exchange)
+					moveText = MARK_UV("xch ") + QUACKLE_ALPHABET_PARAMETERS->userVisible(compMove.tiles());
+				else
+					moveText = MARK_UV("pas");
+
+				UVOStringStream row;
+				row << m_seed << ',' << gameNumber << ',' << i << ',' << player.id() << ',' << before.bag().size() << ','
+					<< before.spread(player.id()) << ',' << player.rack() << ',' << moveText << ',' << compMove.score << ',' << leave << ','
+					<< mover.leaveValue(leave.tiles()) << ',' << compMove.equity << ',';
+				loggedMoves.push_back({ player.id(), row.str() });
+			}
 		}
 	}
 	result.moves = i;

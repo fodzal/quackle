@@ -152,6 +152,8 @@ protected:
 	Quackle::ComputerPlayer *m_computerPlayerToTest;
 	Quackle::ComputerPlayer *m_computerPlayer2ToTest;
 	bool m_quiet;
+	UVOFStream m_moveLog;
+	unsigned int m_seed = 0;
 	int m_arenaStartBag = -1;
 	int m_playerCount;
 	QString m_gamesDir;
