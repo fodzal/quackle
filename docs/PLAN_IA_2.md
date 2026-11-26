@@ -90,11 +90,18 @@ des données, il faut des centaines d'essais, donc un palier beaucoup plus rapid
 2. **`test/arena-static`** — l'arène accepte deux joueurs statiques avec des tables différentes,
    et `arena.py` répartit des milliers de paires sur les 8 cœurs. Mesurer en tête de chantier le
    débit réel (paires par minute) et la précision obtenue en 10 min, et les noter ici.
+   **Mesuré le 2026-11-26** (Release, 8 processus, Static contre Static sans superleaves) :
+   **6 300 paires par minute**. 30 000 paires en 4 min 46 s donnent ±0,36 point de score
+   (±2,5 Elo) et ±0,77 point d'écart par partie ; **en 10 min, environ ±1,7 Elo**. Pour
+   comparaison, une nuit d'arène Championship donne ±4,25 points de score.
 3. **`test/arena-sprt`** — arrêt séquentiel dans `arena.py` (SPRT sur les paires), pour tous
    les paliers.
 4. **Adversaire de référence** — garder, pour le palier 4, une version figée de Championship
    (avec les données actuelles) en plus de Static. Static est très prévisible, ce qui
    avantage ou pénalise certaines idées (l'inférence, par exemple).
+   **Fait** : Championship 33/82, `timelimit=0`, avec les tables `ods5` figées à `2cb0782` par
+   `test/arena/freeze.py`. Seules les données sont figées : les deux joueurs tournent dans le
+   même binaire, donc un changement du moteur atteint aussi la référence.
 
 ## Chantier 2 — Reliquats `ods5` appris (levier principal)
 
@@ -198,5 +205,9 @@ Ensuite, selon les résultats :
 | 22 | `fix/report-win` | 0 | prête | A.1, A.2, A.3, A.7 ; `report-logan` et `report-boys2` ré-enregistrés (format des %, et « best » quand toutes les equities sont négatives) |
 | 23 | `fix/sim-deadline` | 0 | prête | B9 ; sans effet avec `timelimit=0`, donc pas d'arène possible |
 | 24 | `fix/missing-alphabet` | 0 | prête | B13 ; sortie 1 avec un message |
+| 25 | `ai/per-player-strategy` | 1.1 | prête | goldens inchangés (38/38 sous ASan) ; Static contre Static avec une copie de la table `ods5` sur un côté ou sur les deux : les mêmes 400 paires coup pour coup, toutes 1-1, écart 0 ; idem avec Championship 10/20 (32 paires, 2 threads) |
+| 26 | `test/arena-static` | 1.2 | prête | 6 300 paires par minute ; ±1,7 Elo en 10 min ; sans superleaves : −29 Elo (−32..−27), −12,2 ± 0,8 points |
+| 27 | `test/arena-sprt` | 1.3 | prête | SPRT 0/+10 simulé : 4 % de H1 à 0 Elo, 97 % à +10 ; en arène, sans superleaves : décidé en 600 paires (H0) et, sièges inversés, en 1 000 paires (H1) |
+| 28 | `test/arena-reference` | 1.4 | prête | Static sur les tables figées : les mêmes 400 paires que sur celles du dépôt |
 
 Sommet de la pile (`fix/missing-alphabet`) : régression 38/38 sous ASan (RelWithDebInfo), le 2026-11-26.
