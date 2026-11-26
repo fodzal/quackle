@@ -265,7 +265,7 @@ def main():
             line = f"[{time.time() - start:6.0f}s] {done}/{2 * args.pairs} games"
             if sprt:
                 line += f", LLR {sprt.llr([pair_score(p) for p in complete_pairs(games)]):+.2f}"
-            print(line)
+            print(line, flush=True)
         if not running:
             break
         if sprt and sprt.decision([pair_score(p) for p in complete_pairs(games)]):
