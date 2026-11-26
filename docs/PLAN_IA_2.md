@@ -191,4 +191,12 @@ Ensuite, selon les résultats :
 
 | # | Branche | Chantier | État | Résultat |
 |---|---|---|---|---|
-| | | | | |
+| 0.1 | les 18 branches de `PLAN_IA.md` | 0 | prêtes, pile linéaire sur `master` | régression 30/30 sous ASan au sommet (`ai/preendgame-inference`) |
+| 19 | `fix/endgame-passout-spread` | 0 | rebasée | mode du harnais renommé `passout` (`endgame` est pris par le solveur) |
+| 20 | `fix/report-considered-move-endgame` | 0 | rebasée | `report-boys2` ré-enregistré : un écart d'equity statique (42 → 44), dû aux corrections de leaves de la branche 7 |
+| 21 | `fix/multiplayer` | 0 | rebasée | tirages par playahead de la pile et duels multijoueurs fusionnés ; interpolation `double` de la table gardée ; goldens 2 joueurs identiques ; goldens 3 et 4 joueurs : seule la ligne `SELFPLAY SUMMARY` s'ajoute |
+| 22 | `fix/report-win` | 0 | prête | A.1, A.2, A.3, A.7 ; `report-logan` et `report-boys2` ré-enregistrés (format des %, et « best » quand toutes les equities sont négatives) |
+| 23 | `fix/sim-deadline` | 0 | prête | B9 ; sans effet avec `timelimit=0`, donc pas d'arène possible |
+| 24 | `fix/missing-alphabet` | 0 | prête | B13 ; sortie 1 avec un message |
+
+Sommet de la pile (`fix/missing-alphabet`) : régression 38/38 sous ASan (RelWithDebInfo), le 2026-11-26.

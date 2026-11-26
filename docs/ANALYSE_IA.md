@@ -122,10 +122,10 @@ Remède : un vrai solveur (A5) — il retrouve ces coups tout seul, aucune heuri
 | B6 | **[corrigé, `fix/strategy-loading`]** `bogowin((int)lead, …)` : troncature vers 0, donc −0,9 → 0 et +0,9 → 0 [vu] | `Simulator::simulateOnePosition` | Petit biais en faveur des positions légèrement perdantes. |
 | B7 | **[corrigé, `fix/strategy-loading`]** `GamePosition::spread` initialise le meilleur adversaire à 0 [vu] | `game.cpp` | Écart faux si l'adversaire a un score négatif (fin par passes depuis 0). Rare. |
 | B8 | Le leave en fin de playout est évalué avec la table de **milieu de partie**, même sac vide ou presque [vu] | `calculatePlayerConsideration` dans la simulation | Résidu faux en fin de partie, là où chaque point compte. |
-| B9 | Le chrono n'est vérifié qu'**entre** deux candidats [vu] | `SmartBogowin::moves` | Dépassement de temps possible ; mineur. |
+| B9 | Le chrono n'est vérifié qu'**entre** deux candidats [corrigé, `fix/sim-deadline`] | `SmartBogowin::moves` | Dépassement de temps possible ; mineur. |
 | B10 | Heuristique de timing indexée par `sac − tuiles + 7` (taille de chevalet en dur) et calibrée en anglais [vu] | `CatchallEvaluator::equity` | Faux pour toute autre taille de chevalet ; mal calibré en français. |
 | B12 | **[corrigé, `ai/deterministic-sim`]** **Simulations non reproductibles** : chaque thread de simulation tirait sa graine de `random_device` [vu] | `DataManager::ensureRngSeeded`, `Simulator` | Aucune partie avec un joueur qui simule ne se rejouait, même avec `--seed`. |
-| B13 | Le harnais plante (pointeur nul dans `LexiconParameters::loadGaddag`) quand l'alphabet est introuvable, au lieu de s'arrêter avec un message [vu] | `TestHarness::startUp` | Confort ; mineur. |
+| B13 | Le harnais plante (pointeur nul dans `LexiconParameters::loadGaddag`) quand l'alphabet est introuvable, au lieu de s'arrêter avec un message [corrigé, `fix/missing-alphabet`] | `TestHarness::startUp` | Confort ; mineur. |
 
 Rappel des bugs déjà listés dans `ROADMAP.md` et toujours ouverts : A.1–A.7 (% du rapport,
 preendgame), C.1 (course de données sur les superleaves), B.5 (sortie console).

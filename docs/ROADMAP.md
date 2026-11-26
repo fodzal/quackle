@@ -15,16 +15,16 @@ par un test ; **[corrigé]** = reproduit puis corrigé.
 Le rapport (`Reporter::reportPosition`) affiche `move.win × 100`. Selon la phase de jeu, `win`
 vient de trois sources différentes, chacune avec ses défauts.
 
-1. **[vu] Preendgame affiche une autre grandeur que celle qui sert au tri.**
+1. **[corrigé, `fix/report-win`] Preendgame affiche une autre grandeur que celle qui sert au tri.**
    `Preendgame::moves` trie par `win` (pondéré par la probabilité des chevalets) puis écrase
    `win = possibleWin` (pondéré par la `possibility`) avant de renvoyer. Le classement et le %
    affiché ne correspondent donc pas ; avec 1–2 tuiles dans le sac, l'ordre peut sembler
    contredire les %.
-2. **[vu] Preendgame : coups non évalués affichés à 0 %.** Tous les candidats partent à
+2. **[corrigé, `fix/report-win`] Preendgame : coups non évalués affichés à 0 %.** Tous les candidats partent à
    `win = 0`, puis passent à 1 au moment où on les évalue. Si le chrono (`secondsPerTurn × 6`)
    coupe la boucle, les candidats restants gardent 0 %. En cas d'abort en cours de candidat,
    celui-ci garde un % partiel **surestimé** (on part de 1 et on soustrait).
-3. **[vu] `highestEquity` initialisé à 0 dans le reporter.** Si toutes les equities simulées
+3. **[corrigé, `fix/report-win`] `highestEquity` initialisé à 0 dans le reporter.** Si toutes les equities simulées
    sont négatives (cas courant quand on est mené), aucun coup n'est marqué « best » et les
    écarts affichés sont faux.
 4. **[vu] Bruit statistique.** SmartBogowin simule les candidats avec un nombre d'itérations
@@ -38,7 +38,7 @@ vient de trois sources différentes, chacune avec ses défauts.
 6. **[vu] Fin de partie : tout est 0 / 50 / 100 %.** C'est voulu (`reallyPlayOut`), et
    l'endgame est heuristique (pas un minimax exact) : un 100 % peut être faux. Note :
    `Endgame::solve` ignore son paramètre `nestedness` ; seule celle de la position compte.
-7. **[vu] Mise en forme.** `precision(4)` + `showpoint` donne `5.000%`, `50.00%`, `100.0%`.
+7. **[corrigé, `fix/report-win`] Mise en forme.** `precision(4)` + `showpoint` donne `5.000%`, `50.00%`, `100.0%`.
 8. **[corrigé] Fin de partie par passes : vainqueur inversé.** Quand la partie se termine par
    6 tours sans score (chevalets bloqués), `incrementTurn` applique déjà la pénalité
    (−chevalet de chacun). Les trois boucles de `endgame.cpp` rappelaient ensuite
