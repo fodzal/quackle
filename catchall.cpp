@@ -49,7 +49,7 @@ double CatchallEvaluator::equity(const GamePosition &position, const Move &move)
 					consbits |= 1;
 			}
 
-			adjustment = QUACKLE_STRATEGY_PARAMETERS->vcPlace(start, length, consbits);
+			adjustment = position.strategy().vcPlace(start, length, consbits);
 		}
 		else
 			adjustment = 3.5;

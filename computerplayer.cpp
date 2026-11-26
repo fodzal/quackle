@@ -39,6 +39,15 @@ void ComputerPlayer::setDispatch(ComputerDispatch *dispatch)
 void ComputerPlayer::setPosition(const GamePosition &position)
 {
 	m_simulator.setPosition(position);
+	if (m_parameters.strategy)
+		m_simulator.currentPosition().setStrategy(m_parameters.strategy.get());
+}
+
+void ComputerPlayer::setParameters(const ComputerParameters &parameters)
+{
+	m_parameters = parameters;
+	if (m_parameters.strategy)
+		m_simulator.currentPosition().setStrategy(m_parameters.strategy.get());
 }
 
 bool ComputerPlayer::shouldAbort()

@@ -26,6 +26,7 @@
 #include "gameparameters.h"
 #include "game.h"
 #include "generator.h"
+#include "strategyparameters.h"
 
 // define this to get warnings when there's a problem bag
 #define DEBUG_BAG
@@ -206,6 +207,7 @@ GamePosition::GamePosition(const GamePosition &position)
 	, m_previousMove(position.m_previousMove)
 	, m_turnNumber(position.m_turnNumber)
 	, m_nestedness(position.m_nestedness)
+	, m_strategy(position.m_strategy)
 	, m_scorelessTurnsInARow(position.m_scorelessTurnsInARow)
 	, m_gameOver(position.m_gameOver)
 	, m_tilesInBag(position.m_tilesInBag)
@@ -237,6 +239,7 @@ const GamePosition &GamePosition::operator=(const GamePosition &position)
 	m_previousMove = position.m_previousMove;
 	m_turnNumber = position.m_turnNumber;
 	m_nestedness = position.m_nestedness;
+	m_strategy = position.m_strategy;
 	m_scorelessTurnsInARow = position.m_scorelessTurnsInARow;
 	m_gameOver = position.m_gameOver;
 	m_tilesInBag = position.m_tilesInBag;
@@ -510,7 +513,17 @@ double GamePosition::calculatePlayerConsideration(const Move &move)
 
 double GamePosition::leaveValue(const LetterString &leave) const
 {
-	return QUACKLE_EVALUATOR->leaveValue(leave);
+	return QUACKLE_EVALUATOR->leaveValue(leave, strategy());
+}
+
+void GamePosition::setStrategy(const StrategyParameters *strategy)
+{
+	m_strategy = strategy;
+}
+
+const StrategyParameters &GamePosition::strategy() const
+{
+	return m_strategy ? *m_strategy : *QUACKLE_STRATEGY_PARAMETERS;
 }
 
 double GamePosition::calculateSharedConsideration(const Move &move)

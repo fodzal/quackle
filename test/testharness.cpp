@@ -93,17 +93,33 @@ checkPlayerName(const QString& computer)
 	}
 }
 
-static void applyPlayerConfig(ComputerPlayer *player, const QString &config, const char *label)
+static void applyPlayerConfig(ComputerPlayer *player, const QString &config, const char *label, const QString &lexicon)
 {
 	if (!player || config.isNull())
 		return;
 
 	ComputerParameters parameters = player->parameters();
+	QString strategyDirectory;
 	for (const QString &item : config.split(',', Qt::SkipEmptyParts))
 	{
 		const QStringList pair = item.split('=');
 		bool ok = pair.size() == 2;
 		const QString key = pair.value(0).trimmed();
+
+		if (ok && key == "strategy")
+		{
+			strategyDirectory = pair[1].trimmed();
+			if (!QDir(strategyDirectory).exists())
+			{
+				UVcout << "Strategy directory " << QuackleIO::Util::qstringToString(strategyDirectory) << " not found" << endl;
+				exit(1);
+			}
+			auto strategy = std::make_shared<Quackle::StrategyParameters>();
+			strategy->initialize(QuackleIO::Util::qstringToStdString(lexicon), QuackleIO::Util::qstringToStdString(strategyDirectory));
+			parameters.strategy = strategy;
+			continue;
+		}
+
 		const double value = ok ? pair[1].trimmed().toDouble(&ok) : 0;
 		if (!ok)
 		{
@@ -155,7 +171,10 @@ static void applyPlayerConfig(ComputerPlayer *player, const QString &config, con
 		   << parameters.commonRandomNumbers << ", endgame " << parameters.endgameGenerations << ", infer " << parameters.inferenceSamples
 		   << ", inferbeta " << parameters.inferenceBeta << ", precandidates " << parameters.preendgameCandidates << ", nestedplays "
 		   << parameters.nestedEndgamePlays << ", nestedreplies " << parameters.nestedEndgameReplies << ", preinfer "
-		   << parameters.preendgameInference << endl;
+		   << parameters.preendgameInference;
+	if (!strategyDirectory.isNull())
+		UVcout << ", strategy " << QuackleIO::Util::qstringToString(strategyDirectory);
+	UVcout << endl;
 }
 
 TestHarness::TestHarness()
@@ -181,7 +200,8 @@ const char *usage = "Optional arguments:\n"
 					"         opponent's leave, 0 = off), inferbeta, precandidates (preendgame\n"
 					"         candidates), nestedplays and nestedreplies (Endgame's breadth for\n"
 					"         the opponent's answers in the preendgame), preinfer (1 = weight the\n"
-					"         preendgame's opponent racks by their last move, at inferbeta).\n"
+					"         preendgame's opponent racks by their last move, at inferbeta),\n"
+					"         strategy (a directory whose strategy files replace the lexicon's).\n"
 					"         Negative = default.\n"
 					"--config2=key=value,...; the same for the second selfplay player.\n"
 					"--mode=\n"
@@ -318,8 +338,8 @@ void TestHarness::executeFromArguments()
 
 	applyThreadSettings(m_computerPlayerToTest, threadString, qosString);
 	applyThreadSettings(m_computerPlayer2ToTest, threadString, qosString);
-	applyPlayerConfig(m_computerPlayerToTest, config, "player A");
-	applyPlayerConfig(m_computerPlayer2ToTest, config2, "player B");
+	applyPlayerConfig(m_computerPlayerToTest, config, "player A", m_lexicon);
+	applyPlayerConfig(m_computerPlayer2ToTest, config2, "player B", m_lexicon);
 
 	// Apply the seed before dispatching to any mode so that every lever --
 	// not just selfplay -- produces reproducible results. Tile drawing (used

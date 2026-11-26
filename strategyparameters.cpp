@@ -35,11 +35,26 @@ StrategyParameters::StrategyParameters()
 
 void StrategyParameters::initialize(const string &lexicon)
 {
-	m_hasSyn2 = loadSyn2(DataManager::self()->findDataFile("strategy", lexicon, "syn2"));
-	m_hasWorths = loadWorths(DataManager::self()->findDataFile("strategy", lexicon, "worths"));
-	m_hasVcPlace = loadVcPlace(DataManager::self()->findDataFile("strategy", lexicon, "vcplace"));
-	m_hasBogowin = loadBogowin(DataManager::self()->findDataFile("strategy", lexicon, "bogowin"));
-	m_hasSuperleaves = loadSuperleaves(DataManager::self()->findDataFile("strategy", lexicon, "superleaves"));
+	initialize(lexicon, string());
+}
+
+void StrategyParameters::initialize(const string &lexicon, const string &directory)
+{
+	auto find = [&](const string &file) {
+		if (!directory.empty())
+		{
+			const string path = directory + "/" + file;
+			if (ifstream(path.c_str()).good())
+				return path;
+		}
+		return DataManager::self()->findDataFile("strategy", lexicon, file);
+	};
+
+	m_hasSyn2 = loadSyn2(find("syn2"));
+	m_hasWorths = loadWorths(find("worths"));
+	m_hasVcPlace = loadVcPlace(find("vcplace"));
+	m_hasBogowin = loadBogowin(find("bogowin"));
+	m_hasSuperleaves = loadSuperleaves(find("superleaves"));
 	DataManager::self()->evaluationDataChanged();
 }
 

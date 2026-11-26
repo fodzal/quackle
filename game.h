@@ -31,6 +31,8 @@
 namespace Quackle
 {
 
+class StrategyParameters;
+
 class ComputerPlayer;
 class History;
 
@@ -407,6 +409,10 @@ public:
 	// returns a blank string that is one tab per nestedness
 	UVString nestednessIndentation() const;
 
+	// The tables this position is evaluated with; null means the global ones.
+	void setStrategy(const StrategyParameters *strategy);
+	const StrategyParameters &strategy() const;
+
 	// number of plays in a row that have been scoreless
 	int scorelessTurnsInARow() const;
 
@@ -438,6 +444,7 @@ protected:
 	void setTurnNumber(int turnNumber);
 	int m_turnNumber;
 	unsigned int m_nestedness;
+	const StrategyParameters *m_strategy = nullptr;
 	int m_scorelessTurnsInARow;
 	bool m_gameOver;
 	int m_tilesInBag;

@@ -19,6 +19,8 @@
 #ifndef QUACKLE_COMPUTERPLAYER_H
 #define QUACKLE_COMPUTERPLAYER_H
 
+#include <memory>
+
 #include "sim.h"
 
 #define QUACKLE_NULL_COMPUTER_PLAYER_ID 0
@@ -64,6 +66,10 @@ struct ComputerParameters
 
 	// Weight Preendgame's opponent racks by the likelihood of the opponent's last move, at inferenceBeta.
 	bool preendgameInference = false;
+
+	// Tables for every position this player evaluates, both sides of its simulations included; null keeps the
+	// position's own. Shared so that the players it delegates to use them too.
+	std::shared_ptr<const StrategyParameters> strategy;
 };
 
 class ComputerDispatch
@@ -201,10 +207,6 @@ inline const GamePosition &ComputerPlayer::currentPosition() const
 	return m_simulator.currentPosition();
 }
 
-inline void ComputerPlayer::setParameters(const ComputerParameters &parameters)
-{
-	m_parameters = parameters;
-}
 
 inline const ComputerParameters &ComputerPlayer::parameters() const
 {

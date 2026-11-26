@@ -33,6 +33,8 @@ public:
 	StrategyParameters();
 
 	void initialize(const string &lexicon);
+	// Each file found in directory replaces the lexicon's own.
+	void initialize(const string &lexicon, const string &directory);
 	bool hasSyn2() const;
 	bool hasWorths() const;
 	bool hasVcPlace() const;
@@ -42,10 +44,10 @@ public:
 	// letters are raw letters include bottom marks
 	double syn2(Letter letter1, Letter letter2) const;
 	double tileWorth(Letter letter) const;
-	double vcPlace(int start, int length, int consbits);
-	double bogowin(int lead, int unseen, int blanks);
+	double vcPlace(int start, int length, int consbits) const;
+	double bogowin(int lead, int unseen, int blanks) const;
 	// interpolates between the two integer leads around lead
-	double bogowin(double lead, int unseen, int blanks);
+	double bogowin(double lead, int unseen, int blanks) const;
 
 	// false if the leave has no superleave entry
 	bool superleave(const LetterString &leave, double *value) const;
@@ -131,7 +133,7 @@ inline double StrategyParameters::tileWorth(Letter letter) const
 	return m_tileWorths[mapLetter(letter)];
 }
 
-inline double StrategyParameters::vcPlace(int start, int length, int consbits)
+inline double StrategyParameters::vcPlace(int start, int length, int consbits) const
 {
 	if ((consbits < 0) || (consbits >= 128) || (start < 0) || (start >= QUACKLE_MAXIMUM_BOARD_SIZE) || (length < 0)
 		|| (length >= QUACKLE_MAXIMUM_BOARD_SIZE))
@@ -140,7 +142,7 @@ inline double StrategyParameters::vcPlace(int start, int length, int consbits)
 	return m_vcPlace[start][length][consbits];
 }
 
-inline double StrategyParameters::bogowin(int lead, int unseen, int /* blanks */)
+inline double StrategyParameters::bogowin(int lead, int unseen, int /* blanks */) const
 {
 	if (lead < -300)
 		return 0;
@@ -163,7 +165,7 @@ inline double StrategyParameters::bogowin(int lead, int unseen, int /* blanks */
 	return m_bogowin[lead + 300][unseen];
 }
 
-inline double StrategyParameters::bogowin(double lead, int unseen, int blanks)
+inline double StrategyParameters::bogowin(double lead, int unseen, int blanks) const
 {
 	const double floorLead = std::floor(lead);
 	const double fraction = lead - floorLead;

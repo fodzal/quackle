@@ -35,6 +35,7 @@ namespace
 struct LeaveCache
 {
 	const ScorePlusLeaveEvaluator *evaluator = nullptr;
+	const StrategyParameters *strategy = nullptr;
 	unsigned int dataVersion = 0;
 	LetterString rack;
 	int distinct = 0;
@@ -45,11 +46,13 @@ struct LeaveCache
 	std::vector<double> values;
 	std::vector<bool> known;
 
-	bool reset(const ScorePlusLeaveEvaluator *newEvaluator, unsigned int newDataVersion, const LetterString &newRack)
+	bool reset(const ScorePlusLeaveEvaluator *newEvaluator, const StrategyParameters *newStrategy, unsigned int newDataVersion,
+		const LetterString &newRack)
 	{
 		const int maximumSubsets = 4096;
 
 		evaluator = newEvaluator;
+		strategy = newStrategy;
 		dataVersion = newDataVersion;
 		rack = newRack;
 		distinct = 0;
@@ -138,9 +141,10 @@ double Evaluator::sharedConsideration(const GamePosition &position, const Move &
 	return 0;
 }
 
-double Evaluator::leaveValue(const LetterString &leave) const
+double Evaluator::leaveValue(const LetterString &leave, const StrategyParameters &strategy) const
 {
 	(void)leave;
+	(void)strategy;
 	return 0;
 }
 
@@ -154,18 +158,20 @@ double ScorePlusLeaveEvaluator::equity(const GamePosition &position, const Move 
 double ScorePlusLeaveEvaluator::playerConsideration(const GamePosition &position, const Move &move) const
 {
 	const Rack &rack = position.currentPlayer().rack();
+	const StrategyParameters &strategy = position.strategy();
 	const unsigned int dataVersion = QUACKLE_DATAMANAGER->evaluationDataVersion();
-	if ((leaveCache.evaluator != this || leaveCache.dataVersion != dataVersion || !(leaveCache.rack == rack.tiles()))
-		&& !leaveCache.reset(this, dataVersion, rack.tiles()))
-		return leaveValue((rack - move).tiles());
+	if ((leaveCache.evaluator != this || leaveCache.strategy != &strategy || leaveCache.dataVersion != dataVersion
+			|| !(leaveCache.rack == rack.tiles()))
+		&& !leaveCache.reset(this, &strategy, dataVersion, rack.tiles()))
+		return leaveValue((rack - move).tiles(), strategy);
 
 	const int index = leaveCache.leaveIndex(move);
 	if (index < 0)
-		return leaveValue((rack - move).tiles());
+		return leaveValue((rack - move).tiles(), strategy);
 
 	if (!leaveCache.known[index])
 	{
-		leaveCache.values[index] = leaveValue((rack - move).tiles());
+		leaveCache.values[index] = leaveValue((rack - move).tiles(), strategy);
 		leaveCache.known[index] = true;
 	}
 	return leaveCache.values[index];
@@ -178,12 +184,12 @@ double ScorePlusLeaveEvaluator::sharedConsideration(const GamePosition &position
 	return 0;
 }
 
-double ScorePlusLeaveEvaluator::leaveValue(const LetterString &leave) const
+double ScorePlusLeaveEvaluator::leaveValue(const LetterString &leave, const StrategyParameters &strategy) const
 {
 	LetterString alphabetized = String::alphabetize(leave);
 
 	double superleaveValue;
-	if (QUACKLE_STRATEGY_PARAMETERS->hasSuperleaves() && QUACKLE_STRATEGY_PARAMETERS->superleave(alphabetized, &superleaveValue))
+	if (strategy.hasSuperleaves() && strategy.superleave(alphabetized, &superleaveValue))
 		return superleaveValue;
 
 	double value = 0;
@@ -193,32 +199,32 @@ double ScorePlusLeaveEvaluator::leaveValue(const LetterString &leave) const
 		double synergy = 0;
 		LetterString uniqleave;
 
-		if (QUACKLE_STRATEGY_PARAMETERS->hasWorths())
+		if (strategy.hasWorths())
 			for (const auto &leaveIt : leave)
-				value += QUACKLE_STRATEGY_PARAMETERS->tileWorth(leaveIt);
+				value += strategy.tileWorth(leaveIt);
 
-		if (QUACKLE_STRATEGY_PARAMETERS->hasSyn2())
+		if (strategy.hasSyn2())
 			for (unsigned int i = 0; i < alphabetized.length() - 1; ++i)
 				if (alphabetized[i] == alphabetized[i + 1])
-					value += QUACKLE_STRATEGY_PARAMETERS->syn2(alphabetized[i], alphabetized[i]);
+					value += strategy.syn2(alphabetized[i], alphabetized[i]);
 
 		uniqleave += alphabetized[0];
 		for (unsigned int i = 1; i < alphabetized.length(); ++i)
 			if (uniqleave[uniqleave.length() - 1] != alphabetized[i])
 				uniqleave += alphabetized[i];
 
-		if (uniqleave.length() >= 2 && QUACKLE_STRATEGY_PARAMETERS->hasSyn2())
+		if (uniqleave.length() >= 2 && strategy.hasSyn2())
 		{
 			for (unsigned int i = 0; i < uniqleave.length() - 1; ++i)
 				for (unsigned int j = i + 1; j < uniqleave.length(); ++j)
-					synergy += QUACKLE_STRATEGY_PARAMETERS->syn2(uniqleave[i], uniqleave[j]);
+					synergy += strategy.syn2(uniqleave[i], uniqleave[j]);
 
 			// TODO handle the Q
 
 			bool holding_bad_tile = false;
 			for (unsigned int i = 0; i < uniqleave.length(); ++i)
 			{
-				if (QUACKLE_STRATEGY_PARAMETERS->tileWorth(uniqleave[i]) < -5.5)
+				if (strategy.tileWorth(uniqleave[i]) < -5.5)
 				{
 					holding_bad_tile = true;
 				}

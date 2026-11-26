@@ -100,18 +100,19 @@ double SmartBogowin::bogopoints(Move &move)
 	if (move.win == 0)
 		return move.equity - 1000;
 
+	const StrategyParameters &strategy = m_simulator.currentPosition().strategy();
 	int spread = m_simulator.currentPosition().spread(m_simulator.currentPosition().currentPlayer().id());
 	int tiles = m_simulator.currentPosition().bag().size() + QUACKLE_PARAMETERS->rackSize();
 
-	if (move.win <= QUACKLE_STRATEGY_PARAMETERS->bogowin(-300, tiles, 0))
+	if (move.win <= strategy.bogowin(-300, tiles, 0))
 		return move.equity - 1000;
-	if (move.win >= QUACKLE_STRATEGY_PARAMETERS->bogowin(300, tiles, 0))
+	if (move.win >= strategy.bogowin(300, tiles, 0))
 		return move.equity + 1000;
 
 	for (int x = -300; x <= 299; x++)
 	{
-		double lower = QUACKLE_STRATEGY_PARAMETERS->bogowin(x, tiles, 0);
-		double upper = QUACKLE_STRATEGY_PARAMETERS->bogowin(x + 1, tiles, 0);
+		double lower = strategy.bogowin(x, tiles, 0);
+		double upper = strategy.bogowin(x + 1, tiles, 0);
 
 		if ((move.win >= lower) && (move.win <= upper))
 		{

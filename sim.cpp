@@ -826,9 +826,9 @@ void Simulator::simulateOnePosition(SimmedMoveMessage &message, const SimmedMove
 
 			const double lead = ourScore - opponent.score() + pairResidual[opponent.id()];
 			if (movesFirst(position, constants.startPlayerId, opponent.id()))
-				message.wins *= QUACKLE_STRATEGY_PARAMETERS->bogowin(lead, unseen, 0);
+				message.wins *= position.strategy().bogowin(lead, unseen, 0);
 			else
-				message.wins *= 1.0 - QUACKLE_STRATEGY_PARAMETERS->bogowin(-lead, unseen, 0);
+				message.wins *= 1.0 - position.strategy().bogowin(-lead, unseen, 0);
 		}
 	}
 }

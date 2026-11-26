@@ -26,6 +26,7 @@ namespace Quackle
 
 class GamePosition;
 class Move;
+class StrategyParameters;
 
 class Evaluator
 {
@@ -42,7 +43,7 @@ public:
 	virtual double playerConsideration(const GamePosition &position, const Move &move) const;
 	virtual double sharedConsideration(const GamePosition &position, const Move &move) const;
 
-	virtual double leaveValue(const LetterString &leave) const;
+	virtual double leaveValue(const LetterString &leave, const StrategyParameters &strategy) const;
 };
 
 class ScorePlusLeaveEvaluator : public Evaluator
@@ -56,7 +57,7 @@ public:
 	virtual double playerConsideration(const GamePosition &position, const Move &move) const;
 	virtual double sharedConsideration(const GamePosition &position, const Move &move) const;
 
-	virtual double leaveValue(const LetterString &leave) const;
+	virtual double leaveValue(const LetterString &leave, const StrategyParameters &strategy) const;
 };
 
 }
