@@ -51,6 +51,14 @@ void boardFeatures(const Board &board, double features[BoardFeatureCount]);
 // How much the move changes them; zero for anything but a placement.
 void boardFeatureChanges(const Board &board, const Move &move, double changes[BoardFeatureCount]);
 
+// The position's strategy's weights times the move's changes; zero without weights, or with the bag or the board empty.
+double boardTerm(const GamePosition &position, const Move &move);
+
+// Bound boardTerm for a placement: a measure falls only on squares where a tile lands, so the falls are bounded per
+// square, and the rises per number of tiles placed.
+double boardTermLandingBound(const Board &board, const StrategyParameters &strategy, int row, int col);
+double boardTermRiseBound(const StrategyParameters &strategy, int placed);
+
 class Evaluator
 {
 public:

@@ -23,6 +23,7 @@
 #include "alphabetparameters.h"
 #include "boardparameters.h"
 #include "datamanager.h"
+#include "evaluator.h"
 #include "strategyparameters.h"
 
 using namespace Quackle;
@@ -55,6 +56,7 @@ void StrategyParameters::initialize(const string &lexicon, const string &directo
 	m_hasVcPlace = loadVcPlace(find("vcplace"));
 	m_hasBogowin = loadBogowin(find("bogowin"));
 	m_hasSuperleaves = loadSuperleaves(find("superleaves"));
+	loadBoardEval(find("boardeval"));
 	DataManager::self()->evaluationDataChanged();
 }
 
@@ -224,6 +226,32 @@ bool StrategyParameters::loadVcPlace(const string &filename)
 	}
 
 	file.close();
+	return true;
+}
+
+bool StrategyParameters::loadBoardEval(const string &filename)
+{
+	m_boardWeights.clear();
+	if (filename.empty())
+		return false;
+
+	ifstream file(filename.c_str());
+	std::vector<double> weights(BoardFeatureCount, 0.0);
+	string name;
+	double weight;
+	while (file >> name >> weight)
+	{
+		int feature = 0;
+		while (feature < BoardFeatureCount && name != boardFeatureName(feature))
+			++feature;
+		if (feature == BoardFeatureCount)
+		{
+			cerr << "Unknown board measure " << name << " in " << filename << endl;
+			return false;
+		}
+		weights[feature] = weight;
+	}
+	m_boardWeights = weights;
 	return true;
 }
 

@@ -210,6 +210,31 @@ int reachFeature(int row, int col)
 	return -1;
 }
 
+struct ReachSquare
+{
+	int row, col, feature;
+};
+
+// Board parameters can change between games, so the list is rebuilt when the board does.
+const std::vector<ReachSquare> &reachSquares()
+{
+	thread_local const BoardParameters *parameters = nullptr;
+	thread_local std::vector<ReachSquare> squares;
+	if (parameters != QUACKLE_BOARD_PARAMETERS)
+	{
+		parameters = QUACKLE_BOARD_PARAMETERS;
+		squares.clear();
+		for (int row = 0; row < parameters->height(); ++row)
+			for (int col = 0; col < parameters->width(); ++col)
+			{
+				const int feature = reachFeature(row, col);
+				if (feature >= 0)
+					squares.push_back({ row, col, feature });
+			}
+	}
+	return squares;
+}
+
 void measure(const Overlay &overlay, double features[BoardFeatureCount])
 {
 	for (int i = 0; i < BoardFeatureCount; ++i)
@@ -269,18 +294,14 @@ void Quackle::boardFeatureChanges(const Board &board, const Move &move, double c
 		}
 
 	// Reach changes only for premium squares sharing a line with a new tile.
-	for (int row = 0; row < board.height(); ++row)
-		for (int col = 0; col < board.width(); ++col)
-		{
-			const int feature = reachFeature(row, col);
-			if (feature < 0)
-				continue;
-			const bool sameLine = move.horizontal ? (row == move.startrow || (col >= move.startcol && col < move.startcol + length))
-												  : (col == move.startcol || (row >= move.startrow && row < move.startrow + length));
-			if (!sameLine)
-				continue;
-			changes[feature] += (int)after.isReached(row, col) - (int)before.isReached(row, col);
-		}
+	for (const ReachSquare &square : reachSquares())
+	{
+		const int row = square.row, col = square.col;
+		const bool sameLine = move.horizontal ? (row == move.startrow || (col >= move.startcol && col < move.startcol + length))
+											  : (col == move.startcol || (row >= move.startrow && row < move.startrow + length));
+		if (sameLine)
+			changes[square.feature] += (int)after.isReached(row, col) - (int)before.isReached(row, col);
+	}
 }
 
 double Evaluator::equity(const GamePosition &position, const Move &move) const
@@ -341,9 +362,61 @@ double ScorePlusLeaveEvaluator::playerConsideration(const GamePosition &position
 
 double ScorePlusLeaveEvaluator::sharedConsideration(const GamePosition &position, const Move &move) const
 {
-	(void)position;
-	(void)move;
-	return 0;
+	return boardTerm(position, move);
+}
+
+double Quackle::boardTerm(const GamePosition &position, const Move &move)
+{
+	const StrategyParameters &strategy = position.strategy();
+	if (!strategy.hasBoardEval() || move.action != Move::Place || position.bag().empty() || position.board().isEmpty())
+		return 0;
+
+	double changes[BoardFeatureCount];
+	boardFeatureChanges(position.board(), move, changes);
+	double term = 0;
+	for (int i = 0; i < BoardFeatureCount; ++i)
+		term += strategy.boardWeights()[i] * changes[i];
+	return term;
+}
+
+double Quackle::boardTermLandingBound(const Board &board, const StrategyParameters &strategy, int row, int col)
+{
+	if (!strategy.hasBoardEval())
+		return 0;
+
+	const Overlay overlay(board, nullptr);
+	const std::vector<double> &weights = strategy.boardWeights();
+	double bound = 0;
+	if (overlay.isAnchor(row, col))
+		bound += std::max(0.0, -weights[anchorFeature(row, col)]);
+	const int reached = reachFeature(row, col);
+	if (reached >= 0 && overlay.isReached(row, col))
+		bound += std::max(0.0, -weights[reached]);
+	return bound;
+}
+
+double Quackle::boardTermRiseBound(const StrategyParameters &strategy, int placed)
+{
+	if (!strategy.hasBoardEval())
+		return 0;
+
+	int tripleWords = 0;
+	int doubleWords = 0;
+	for (int row = 0; row < QUACKLE_BOARD_PARAMETERS->height(); ++row)
+		for (int col = 0; col < QUACKLE_BOARD_PARAMETERS->width(); ++col)
+		{
+			const int word = QUACKLE_BOARD_PARAMETERS->wordMultiplier(row, col);
+			tripleWords += word >= 3;
+			doubleWords += word == 2;
+		}
+
+	double bound = 0;
+	for (int i = 0; i < BoardFeatureCount; ++i)
+	{
+		const double rise = i == ReachTripleWord ? tripleWords : i == ReachDoubleWord ? doubleWords : 2 * placed + 2;
+		bound += std::max(0.0, strategy.boardWeights()[i] * rise);
+	}
+	return bound;
 }
 
 double ScorePlusLeaveEvaluator::leaveValue(const LetterString &leave, const StrategyParameters &strategy) const

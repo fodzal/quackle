@@ -188,6 +188,8 @@ private:
 	vector<Anchor> m_anchors;
 	vector<int> m_tileValues;
 	vector<double> m_maxNonScoreEquity;
+	// What a tile landing on each square can add to the board term at most.
+	double m_boardLanding[QUACKLE_MAXIMUM_BOARD_SIZE][QUACKLE_MAXIMUM_BOARD_SIZE];
 	int m_squareValue[QUACKLE_MAXIMUM_BOARD_SIZE][QUACKLE_MAXIMUM_BOARD_SIZE];
 	int m_maxTileValue[2][QUACKLE_MAXIMUM_BOARD_SIZE][QUACKLE_MAXIMUM_BOARD_SIZE];
 	int m_crossSum[2][QUACKLE_MAXIMUM_BOARD_SIZE][QUACKLE_MAXIMUM_BOARD_SIZE];

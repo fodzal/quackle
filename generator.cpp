@@ -1782,8 +1782,13 @@ void Generator::prepareShadow()
 		move.horizontal = true;
 		move.score = 0;
 		const int count = (int)placed.length();
-		m_maxNonScoreEquity[count] = std::max(m_maxNonScoreEquity[count], equity(move));
+		m_maxNonScoreEquity[count] = std::max(m_maxNonScoreEquity[count], equity(move) - boardTerm(m_position, move));
 	}
+	for (int count = 0; count <= rackTiles; ++count)
+		m_maxNonScoreEquity[count] += boardTermRiseBound(m_position.strategy(), count);
+	for (int row = 0; row < board().height(); ++row)
+		for (int col = 0; col < board().width(); ++col)
+			m_boardLanding[row][col] = boardTermLandingBound(board(), m_position.strategy(), row, col);
 
 	for (int row = 0; row < board().height(); ++row)
 		for (int col = 0; col < board().width(); ++col)
@@ -1852,6 +1857,7 @@ double Generator::shadowBound(int row, int col, bool horizontal, int leftLimit)
 		int wordMultiplier = 1;
 		int boardSum = 0;
 		int crossFixed = 0;
+		double boardLanding = 0;
 		int letterMultipliers[QUACKLE_MAXIMUM_BOARD_SIZE];
 		int crossCoefficients[QUACKLE_MAXIMUM_BOARD_SIZE];
 		int maxTileValues[QUACKLE_MAXIMUM_BOARD_SIZE];
@@ -1873,6 +1879,7 @@ double Generator::shadowBound(int row, int col, bool horizontal, int leftLimit)
 		span.maxTileValues[span.placed] = m_maxTileValue[dir][r][c];
 		if (m_hasCross[dir][r][c])
 			span.crossFixed += m_crossSum[dir][r][c] * wm;
+		span.boardLanding += m_boardLanding[r][c];
 		span.wordMultiplier *= wm;
 		++span.placed;
 		return true;
@@ -1916,7 +1923,7 @@ double Generator::shadowBound(int row, int col, bool horizontal, int leftLimit)
 			int score = span.wordMultiplier * span.boardSum + span.crossFixed + std::min(sortedTiles, squareTiles);
 			if (span.placed == rackSize)
 				score += QUACKLE_PARAMETERS->bingoBonus();
-			bound = std::max(bound, score + m_maxNonScoreEquity[span.placed]);
+			bound = std::max(bound, score + m_maxNonScoreEquity[span.placed] + span.boardLanding);
 		}
 	}
 

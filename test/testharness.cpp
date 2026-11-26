@@ -1589,6 +1589,11 @@ void TestHarness::bestMove(unsigned int games)
 		{
 			GamePosition best(game.currentPosition());
 			GamePosition all(game.currentPosition());
+			if (m_computerPlayerToTest && m_computerPlayerToTest->parameters().strategy)
+			{
+				best.setStrategy(m_computerPlayerToTest->parameters().strategy.get());
+				all.setStrategy(m_computerPlayerToTest->parameters().strategy.get());
+			}
 			const Move alone = best.staticBestMove();
 			all.kibitz(1000000);
 			++positions;

@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstdint>
 #include <unordered_map>
+#include <vector>
 #include "alphabetparameters.h"
 
 namespace Quackle
@@ -40,6 +41,9 @@ public:
 	bool hasVcPlace() const;
 	bool hasBogowin() const;
 	bool hasSuperleaves() const;
+	// Weights of the board measures' changes (BoardFeature), added to a placement's equity.
+	bool hasBoardEval() const;
+	const std::vector<double> &boardWeights() const;
 
 	// letters are raw letters include bottom marks
 	double syn2(Letter letter1, Letter letter2) const;
@@ -58,6 +62,8 @@ protected:
 	bool loadVcPlace(const string &filename);
 	bool loadBogowin(const string &filename);
 	bool loadSuperleaves(const string &filename);
+	bool loadBoardEval(const string &filename);
+	std::vector<double> m_boardWeights;
 
 	int mapLetter(Letter letter) const;
 
@@ -115,6 +121,16 @@ inline bool StrategyParameters::hasBogowin() const
 inline bool StrategyParameters::hasSuperleaves() const
 {
 	return m_hasSuperleaves;
+}
+
+inline bool StrategyParameters::hasBoardEval() const
+{
+	return !m_boardWeights.empty();
+}
+
+inline const std::vector<double> &StrategyParameters::boardWeights() const
+{
+	return m_boardWeights;
 }
 
 inline int StrategyParameters::mapLetter(Letter letter) const
